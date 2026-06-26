@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getCheckedSteamFields, pressureToMPa, selectedFieldsToPair, solveSteam, type SteamTableField } from './steam';
 import { calculateVelocity, findPipeSize, getPipeSchedules, getPipeSizes, getPipeStandards } from './pipe';
 import { solveColdOutlet, solveMissingColdFlow } from './heat';
+import { convertUnit, normalizeNumericText } from './units';
 
 describe('steam calculator', () => {
   it('solves near atmospheric saturated vapor by P+x', () => {
@@ -13,6 +14,24 @@ describe('steam calculator', () => {
 
   it('converts bar(g) to absolute MPa', () => {
     expect(pressureToMPa(0, 'bar(g)')).toBeCloseTo(0.101325, 6);
+  });
+
+  it('resolves saturated P+T with the default quality instead of pretending P+T is unique', () => {
+    const result = solveSteam({ pair: 'PT', pressure: 1, pressureUnit: 'MPa', temperature: 179.885, temperatureUnit: '°C', enthalpy: 0, enthalpyUnit: 'kJ/kg', entropy: 0, quality: 0.5 });
+    expect(result.error).toBeUndefined();
+    expect(result.saturation?.ambiguous).toBe(true);
+    expect(result.saturation?.resolution).toBe('quality');
+    expect(result.state?.quality).toBeCloseTo(0.5, 4);
+    expect(result.state?.enthalpy).toBeGreaterThan(700);
+    expect(result.state?.enthalpy).toBeLessThan(2800);
+    expect(result.warnings.some((warning) => warning.includes('P+T가 포화선'))).toBe(true);
+  });
+
+  it('keeps single-phase P+T as a unique state away from saturation', () => {
+    const result = solveSteam({ pair: 'PT', pressure: 1, pressureUnit: 'MPa', temperature: 250, temperatureUnit: '°C', enthalpy: 0, enthalpyUnit: 'kJ/kg', entropy: 0, quality: 0.5 });
+    expect(result.error).toBeUndefined();
+    expect(result.saturation?.ambiguous).toBe(false);
+    expect(result.state?.quality).toBeNull();
   });
 
   it('maps two checked steam-table fields to the correct IF97 input pair', () => {
@@ -59,5 +78,21 @@ describe('heat balance', () => {
     const hot = { flow: 10, flowUnit: 't/h' as const, hIn: 3200, hOut: 900 };
     expect(solveColdOutlet(hot, 20, 't/h', 420)).toBeGreaterThan(700);
     expect(solveMissingColdFlow(hot, 420, 900, 't/h')).toBeGreaterThan(40);
+  });
+});
+
+describe('unit helpers', () => {
+  it('normalizes leading zero numeric input for mobile typing', () => {
+    expect(normalizeNumericText('0350')).toBe('350');
+    expect(normalizeNumericText('07')).toBe('7');
+    expect(normalizeNumericText('000.5')).toBe('0.5');
+    expect(normalizeNumericText('-003')).toBe('-3');
+  });
+
+  it('converts common engineering units used by the visible unit converter', () => {
+    expect(convertUnit(1, 'pressure', 'MPa', 'bar(a)')).toBeCloseTo(10, 6);
+    expect(convertUnit(100, 'temperature', '°C', 'K')).toBeCloseTo(373.15, 6);
+    expect(convertUnit(1, 'massFlow', 't/h', 'kg/s')).toBeCloseTo(0.2777778, 6);
+    expect(convertUnit(1, 'specificEnthalpy', 'kcal/kg', 'kJ/kg')).toBeCloseTo(4.1868, 6);
   });
 });

@@ -1,4 +1,5 @@
 import { solvePT, solvePH, solvePS, solvePx, solveTH, solveTS, Region, type SteamState } from 'iapws-if97';
+import { saturationTemperature } from 'iapws-if97/saturation';
 
 export type SteamInputPair = 'PT' | 'PH' | 'PS' | 'Px' | 'TH' | 'TS';
 export type SteamTableField = 'pressure' | 'temperature' | 'enthalpy' | 'entropy' | 'quality' | 'specificVolume';
@@ -107,14 +108,48 @@ export function regionTone(state: SteamState): string {
   return 'dense';
 }
 
+export interface SaturationAssessment {
+  ambiguous: boolean;
+  resolution: 'quality' | 'single-phase';
+  saturationTemperatureK?: number;
+  deltaK?: number;
+  qualityUsed?: number;
+  liquid?: Pick<SteamState, 'enthalpy' | 'entropy' | 'specificVolume'>;
+  vapor?: Pick<SteamState, 'enthalpy' | 'entropy' | 'specificVolume'>;
+}
+
 export interface SteamResult {
   state?: SteamState;
+  saturation: SaturationAssessment;
   error?: string;
   warnings: string[];
 }
 
+const SATURATION_TOLERANCE_K = 0.25;
+
+function clampQuality(x: number): number {
+  if (!Number.isFinite(x)) return 0.5;
+  return Math.min(1, Math.max(0, x));
+}
+
+function assessPTSat(p: number, T: number): SaturationAssessment {
+  try {
+    const saturationTemperatureK = saturationTemperature(p);
+    const deltaK = T - saturationTemperatureK;
+    return {
+      ambiguous: Math.abs(deltaK) <= SATURATION_TOLERANCE_K,
+      resolution: Math.abs(deltaK) <= SATURATION_TOLERANCE_K ? 'quality' : 'single-phase',
+      saturationTemperatureK,
+      deltaK
+    };
+  } catch {
+    return { ambiguous: false, resolution: 'single-phase' };
+  }
+}
+
 export function solveSteam(inputs: SteamInputs): SteamResult {
   const warnings: string[] = [];
+  let saturation: SaturationAssessment = { ambiguous: false, resolution: 'single-phase' };
   try {
     const p = pressureToMPa(inputs.pressure, inputs.pressureUnit);
     const T = tempToK(inputs.temperature, inputs.temperatureUnit);
@@ -123,13 +158,31 @@ export function solveSteam(inputs: SteamInputs): SteamResult {
     const x = inputs.quality;
 
     if (inputs.pair.includes('x') && (x < 0 || x > 1)) {
-      return { error: 'Dryness fraction / quality x must be between 0 and 1.', warnings };
+      return { error: 'Dryness fraction / quality x must be between 0 and 1.', saturation, warnings };
     }
     if (inputs.pressureUnit === 'bar(g)') warnings.push('bar(g) is converted to absolute pressure by adding 1.01325 bar.');
 
     let state: SteamState;
     switch (inputs.pair) {
-      case 'PT': state = solvePT(p, T); break;
+      case 'PT': {
+        saturation = assessPTSat(p, T);
+        if (saturation.ambiguous) {
+          const qualityUsed = clampQuality(x);
+          const liquid = solvePx(p, 0);
+          const vapor = solvePx(p, 1);
+          state = solvePx(p, qualityUsed);
+          saturation = {
+            ...saturation,
+            qualityUsed,
+            liquid: { enthalpy: liquid.enthalpy, entropy: liquid.entropy, specificVolume: liquid.specificVolume },
+            vapor: { enthalpy: vapor.enthalpy, entropy: vapor.entropy, specificVolume: vapor.specificVolume }
+          };
+          warnings.push('P+T가 포화선 위에 있습니다. 압력과 온도는 독립 상태량이 아니므로 기본/사용자 건도 x로 2상 상태를 해석합니다.');
+        } else {
+          state = solvePT(p, T);
+        }
+        break;
+      }
       case 'PH': state = solvePH(p, h); break;
       case 'PS': state = solvePS(p, s); break;
       case 'Px': state = solvePx(p, x); break;
@@ -137,10 +190,10 @@ export function solveSteam(inputs: SteamInputs): SteamResult {
       case 'TS': state = solveTS(T, s); break;
     }
 
-    if (state.region === Region.Region4) warnings.push('Two-phase results depend on quality; verify against project/vendor standards for final design.');
-    return { state, warnings };
+    if (state.region === Region.Region4) warnings.push('2상/습증기 구간입니다. 건도에 따라 배관 유속·압력강하·밸브/트랩 선정 결과가 달라지므로 최종 설계 전 프로젝트/벤더 기준으로 확인하세요.');
+    return { state, saturation, warnings };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error), warnings };
+    return { error: error instanceof Error ? error.message : String(error), saturation, warnings };
   }
 }
 
