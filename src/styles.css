@@ -293,6 +293,9 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 .helpDetails p { margin: 8px 0 0; padding: 10px; border-radius: 12px; background: var(--help-bg); color: var(--help-text); line-height: 1.5; font-size: 12px; }
 .pipeTableToggle { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; font-size: 12px; border-radius: 11px; background: var(--surface); color: var(--accent-solid); border: 1px solid var(--border-accent); box-shadow: none; cursor: pointer; }
 .pipeTableToggle:hover { background: var(--surface-hover); }
+.pipeTableHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.pipeTableTitle { margin: 0; font-size: 14px; white-space: nowrap; }
+.pipeTableFilter select { font-size: 11px; padding: 4px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); min-width: 160px; max-height: 80px; overflow-y: auto; }
 .pipeTableWrap { margin-top: 8px; overflow: auto; border: 1px solid var(--table-border); border-radius: 13px; background: var(--table-bg); max-height: 400px; }
 .pipeTable { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 600px; }
 .pipeTable th, .pipeTable td { padding: 7px 8px; border-bottom: 1px solid var(--table-row-border); text-align: left; white-space: nowrap; }

@@ -156,6 +156,8 @@ function App() {
   const velocity = calculateVelocity(pipeFlow, pipeFlowUnit, effectiveSpecificVolume, resolvedPipeRow.idMm);
   const pipeRowsForStandard = PIPE_SIZES.filter((row) => row.standard === pipeStandard);
   const [showPipeTable, setShowPipeTable] = useState(true);
+  const [pipeRightStandard, setPipeRightStandard] = useState<PipeStandard>('ASME B36.10/B36.19');
+  const pipeRowsForRightStandard = PIPE_SIZES.filter((row) => row.standard === pipeRightStandard);
 
   // Unit converter (inline)
   const [unitCategory, setUnitCategory] = useState<UnitCategory>('pressure');
@@ -173,7 +175,28 @@ function App() {
     if (checkedFields.length >= 2) return false;
     return checkedFields.length === 0 || Boolean(selectedFieldsToPair([checkedFields[0], field]));
   }
-  function toggleField(field: SteamTableField) { if (canCheck(field)) setChecks((prev) => ({ ...prev, [field]: !prev[field] })); }
+  function toggleField(field: SteamTableField) {
+    if (canCheck(field)) {
+      // Normal: toggle on/off
+      setChecks((prev) => ({ ...prev, [field]: !prev[field] }));
+    } else if (checkedFields.length >= 2 && !checks[field]) {
+      // Replace mode: user clicked a field while 2 are checked
+      // Keep the one that can pair with the new field, uncheck others
+      for (const checked of checkedFields) {
+        const pair = selectedFieldsToPair([checked, field]);
+        if (pair) {
+          setChecks((prev) => {
+            const next = { ...prev, [field]: true };
+            for (const cf of checkedFields) {
+              if (cf !== checked) next[cf] = false;
+            }
+            return next;
+          });
+          break;
+        }
+      }
+    }
+  }
   function showValue(field: SteamTableField) {
     if (!state) return '—';
     if (field === 'pressure') return format(pressureFromMPa(state.pressure, inputs.pressureUnit));
@@ -302,7 +325,16 @@ function App() {
         </section>
         {/* Right: Pipe Table */}
         <section className="panel pipeTablePanel">
-          <PipeTable rows={pipeRowsForStandard} selected={resolvedPipeRow} onPick={(row) => { setPipeStandard(row.standard); setPipeNps(row.nps); setPipeSchedule(row.schedule); }} expanded={showPipeTable} onToggle={() => setShowPipeTable(!showPipeTable)} />
+          <div className="pipeTableHeader">
+            <h3 className="pipeTableTitle">{t.table}</h3>
+            <div className="pipeTableFilter">
+              <select multiple size={4} value={[pipeRightStandard]} onChange={(e) => {
+                const val = e.target.value as PipeStandard;
+                if (val) setPipeRightStandard(val);
+              }}>{standards.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+            </div>
+          </div>
+          <PipeTable rows={pipeRowsForRightStandard} selected={resolvedPipeRow} onPick={(row) => { setPipeStandard(row.standard); setPipeNps(row.nps); setPipeSchedule(row.schedule); }} expanded={showPipeTable} onToggle={() => setShowPipeTable(!showPipeTable)} />
           <div className="adSlot" aria-label={t.adLabel}>{t.adLabel}</div>
         </section>
       </div>
@@ -321,7 +353,7 @@ function SaturationAdvisor({ copy: t, active, quality, tSat, temperatureUnit, li
 
 function SteamTableRow({ field, checked, disabled, value, inputs, lang, onToggle, onSet }: { field: SteamTableField; checked: boolean; disabled: boolean; value: string; inputs: SteamInputs; lang: Lang; onToggle: () => void; onSet: <K extends keyof SteamInputs>(key: K, value: SteamInputs[K]) => void }) {
   const meta = fieldLabels[field];
-  return <div className={`${checked ? 'steamRow checked' : 'steamRow'}${disabled ? ' disabled' : ''}`}><label className="steamCheck"><input type="checkbox" checked={checked} disabled={disabled} onChange={onToggle} /><span>{meta.symbol}</span></label><div className="steamName"><b>{meta[lang]}</b><small>{meta.checkable ? 'input' : 'calc'}</small></div><div className="steamValue">{checked ? <SteamFieldInput field={field} inputs={inputs} onSet={onSet} /> : <ValueWithUnit value={value} unit={displayUnit(field, inputs)} />}</div></div>;
+  return <div className={`${checked ? 'steamRow checked' : 'steamRow'}${disabled ? ' disabled' : ''}`} onClick={onToggle}><label className="steamCheck"><input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => e.stopPropagation()} readOnly /><span>{meta.symbol}</span></label><div className="steamName"><b>{meta[lang]}</b><small>{meta.checkable ? 'input' : 'calc'}</small></div><div className="steamValue" onClick={(e) => e.stopPropagation()}>{checked ? <SteamFieldInput field={field} inputs={inputs} onSet={onSet} /> : <ValueWithUnit value={value} unit={displayUnit(field, inputs)} />}</div></div>;
 }
 
 function SteamFieldInput({ field, inputs, onSet }: { field: SteamTableField; inputs: SteamInputs; onSet: <K extends keyof SteamInputs>(key: K, value: SteamInputs[K]) => void }) {
