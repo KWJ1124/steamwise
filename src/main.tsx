@@ -38,6 +38,7 @@ const hUnits: EnthalpyUnit[] = ['kJ/kg', 'kcal/kg', 'BTU/lb'];
 const tableFields: SteamTableField[] = ['pressure', 'temperature', 'enthalpy', 'entropy', 'quality', 'specificVolume'];
 
 type Lang = 'ko' | 'en';
+type Theme = 'light' | 'dark';
 type TabKey = 'steam' | 'pipe' | 'unit' | 'heat';
 type RecordItem = { id: string; label: string; p: number; t: number; h: number; s: number; v: number; x: number | null; region: string };
 
@@ -83,27 +84,28 @@ const fieldLabels: Record<SteamTableField, { symbol: string; ko: string; en: str
   specificVolume: { symbol: 'v', ko: '비체적', en: 'Specific volume', checkable: false }
 };
 
-function SteamChart({ records, current }: { records: RecordItem[]; current?: RecordItem }) {
+function SteamChart({ records, current, theme }: { records: RecordItem[]; current?: RecordItem; theme: Theme }) {
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!ref.current) return;
-    const chart = echarts.init(ref.current);
+    const chart = echarts.init(ref.current, undefined, { renderer: 'svg' });
     const dome = [[0.6, 20], [1.2, 80], [2.1, 140], [3.2, 200], [4.4, 260], [5.2, 320], [4.8, 374], [6.8, 320], [7.5, 260], [7.2, 200], [6.7, 140], [6.0, 80], [5.1, 20]];
     const pts = [...records.slice(-8), ...(current ? [current] : [])];
+    const isDark = theme === 'dark';
     chart.setOption({
       grid: { left: 45, right: 16, top: 18, bottom: 38 },
       tooltip: { trigger: 'item' },
-      xAxis: { name: 's kJ/kg·K', type: 'value', min: 0, max: 9, splitLine: { lineStyle: { color: '#e7edf3' } } },
-      yAxis: { name: 'T °C', type: 'value', min: 0, max: 650, splitLine: { lineStyle: { color: '#e7edf3' } } },
+      xAxis: { name: 's kJ/kg·K', type: 'value', min: 0, max: 9, nameTextStyle: { color: isDark ? '#8896a9' : '#526174' }, axisLabel: { color: isDark ? '#6b7a8e' : '#667789' }, splitLine: { lineStyle: { color: isDark ? '#2a3649' : '#e7edf3' } } },
+      yAxis: { name: 'T °C', type: 'value', min: 0, max: 650, nameTextStyle: { color: isDark ? '#8896a9' : '#526174' }, axisLabel: { color: isDark ? '#6b7a8e' : '#667789' }, splitLine: { lineStyle: { color: isDark ? '#2a3649' : '#e7edf3' } } },
       series: [
-        { name: 'Saturation dome', type: 'line', data: dome, smooth: true, symbol: 'none', lineStyle: { color: '#7aa7c7', width: 2 }, areaStyle: { color: 'rgba(125, 211, 252, .10)' } },
-        { name: 'State', type: 'scatter', symbolSize: 13, data: pts.map((r) => [r.s, r.t, r.label]), itemStyle: { color: '#0f766e' } }
+        { name: 'Saturation dome', type: 'line', data: dome, smooth: true, symbol: 'none', lineStyle: { color: isDark ? '#3a7a9a' : '#7aa7c7', width: 2 }, areaStyle: { color: isDark ? 'rgba(58, 122, 154, .12)' : 'rgba(125, 211, 252, .10)' } },
+        { name: 'State', type: 'scatter', symbolSize: 13, data: pts.map((r) => [r.s, r.t, r.label]), itemStyle: { color: isDark ? '#14c5b4' : '#0f766e' } }
       ]
     });
     const resize = () => chart.resize();
     window.addEventListener('resize', resize);
     return () => { window.removeEventListener('resize', resize); chart.dispose(); };
-  }, [records, current]);
+  }, [records, current, theme]);
   return <div ref={ref} className="chart" />;
 }
 
@@ -112,6 +114,8 @@ function App() {
   const t = copy[lang];
   const [activeTab, setActiveTab] = useState<TabKey>('steam');
   const [mini, setMini] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => (typeof localStorage !== 'undefined' ? (localStorage.getItem('steamwise-theme') as Theme || 'light') : 'light'));
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); localStorage.setItem('steamwise-theme', theme); }, [theme]);
 
   const [checks, setChecks] = useState<SteamFieldChecks>({ pressure: true, temperature: true, enthalpy: false, entropy: false, quality: false, specificVolume: false });
   const checkedFields = getCheckedSteamFields(checks).filter((field) => field !== 'specificVolume');
@@ -187,6 +191,7 @@ function App() {
       </div>
       <div className="topActions">
         <button className="tinyButton" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>{t.language}</button>
+        <button className="tinyButton themeToggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? '☀️' : '🌙'}</button>
         <button className="tinyButton" onClick={() => setMini(!mini)}>{mini ? t.full : t.mini}</button>
         <button className="tinyButton" onClick={savePoint} disabled={!state}>{t.pin}</button>
         <button className="tinyButton" onClick={() => setRecords([])}>{t.clear}</button>
@@ -225,7 +230,7 @@ function App() {
         </>}
       </section>
 
-      {!mini && <section className="panel chartPanel"><h2>{t.chart}</h2><SteamChart records={records} current={current} /><div className="history">{records.map((r) => <button key={r.id} onClick={() => restoreRecord(r)} title="Click to restore">{r.label}<span>{r.region}</span><small>P={format(r.p)} T={format(r.t)} h={format(r.h)}</small></button>)}</div></section>}
+      {!mini && <section className="panel chartPanel"><h2>{t.chart}</h2><SteamChart records={records} current={current} theme={theme} /><div className="history">{records.map((r) => <button key={r.id} onClick={() => restoreRecord(r)} title="Click to restore">{r.label}<span>{r.region}</span><small>P={format(r.p)} T={format(r.t)} h={format(r.h)}</small></button>)}</div></section>}
     </section>}
 
     {activeTab === 'pipe' && <section className="workspace singleWorkspace">
@@ -244,6 +249,8 @@ function App() {
           <NumberWithFixedUnit label="Pipe ID" value={resolvedPipeRow.idMm} unit="mm" onValue={() => undefined} disabled helper="from table" />
         </div>
         <div className="resultCards compact"><Metric label="Velocity" value={format(velocity.velocityMS)} unit="m/s" /><Metric label="Vol. flow" value={format(velocity.volumetricM3S)} unit="m³/s" /><Metric label="Mass flow" value={format(velocity.kgS)} unit="kg/s" /></div>
+        {velocity.velocityMS > 60 && <div className="warn">⚠ Velocity {format(velocity.velocityMS)} m/s exceeds steam guideline (~25–40 m/s) — erosion risk, check pipe spec</div>}
+        {velocity.velocityMS > 0 && velocity.velocityMS < 5 && <div className="warn subtle">Velocity low ({format(velocity.velocityMS)} m/s) — may cause condensate accumulation in steam lines</div>}
         <details className="pipeTableDetails"><summary>{t.table} · {pipeStandard}</summary><PipeTable rows={pipeRowsForStandard} selected={resolvedPipeRow} onPick={(row) => { setPipeStandard(row.standard); setPipeNps(row.nps); setPipeSchedule(row.schedule); }} /></details>
         <Help title={t.help}>{t.pipeHelp}</Help>
       </section>
