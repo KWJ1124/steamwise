@@ -92,9 +92,9 @@ function SteamChart({ records, current, theme }: { records: RecordItem[]; curren
     const pts = [...records.slice(-8), ...(current ? [current] : [])];
     const isDark = theme === 'dark';
     chart.setOption({
-      grid: { left: 40, right: 12, top: 16, bottom: 32 },
+      grid: { left: 42, right: 8, top: 16, bottom: 36 },
       tooltip: { trigger: 'item' },
-      xAxis: { name: 's kJ/kg·K', type: 'value', min: 0, max: 9, nameTextStyle: { color: isDark ? '#8896a9' : '#526174', fontSize: 10 }, axisLabel: { color: isDark ? '#6b7a8e' : '#667789', fontSize: 10 }, splitLine: { lineStyle: { color: isDark ? '#2a3649' : '#e7edf3' } } },
+      xAxis: { name: 's kJ/kg·K', type: 'value', min: 0, max: 9.5, nameTextStyle: { color: isDark ? '#8896a9' : '#526174', fontSize: 10 }, axisLabel: { color: isDark ? '#6b7a8e' : '#667789', fontSize: 10 }, splitLine: { lineStyle: { color: isDark ? '#2a3649' : '#e7edf3' } } },
       yAxis: { name: 'T °C', type: 'value', min: 0, max: 650, nameTextStyle: { color: isDark ? '#8896a9' : '#526174', fontSize: 10 }, axisLabel: { color: isDark ? '#6b7a8e' : '#667789', fontSize: 10 }, splitLine: { lineStyle: { color: isDark ? '#2a3649' : '#e7edf3' } } },
       series: [
         { name: 'Saturation dome', type: 'line', data: dome, smooth: true, symbol: 'none', lineStyle: { color: isDark ? '#3a7a9a' : '#7aa7c7', width: 1.5 }, areaStyle: { color: isDark ? 'rgba(58, 122, 154, .10)' : 'rgba(125, 211, 252, .08)' } },
@@ -265,31 +265,47 @@ function App() {
       </section>
     </section>}
 
-    {activeTab === 'pipe' && <section className="workspace singleWorkspace">
-      <section className="panel widePanel">
-        <h2>{t.pipeTitle}</h2>
-        <div className="pipeCascade">
-          <label>Code / standard<select value={pipeStandard} onChange={(e) => { const standard = e.target.value as PipeStandard; const firstSize = getPipeSizes(standard)[0]; const firstSchedule = getPipeSchedules(standard, firstSize)[0]; setPipeStandard(standard); setPipeNps(firstSize); setPipeSchedule(firstSchedule); }}>{standards.map((standard) => <option key={standard}>{standard}</option>)}</select></label>
-          <label>DN / NPS<select value={normalizedPipeNps} onChange={(e) => { const nps = e.target.value; const firstSchedule = getPipeSchedules(pipeStandard, nps)[0]; setPipeNps(nps); setPipeSchedule(firstSchedule); }}>{pipeSizes.map((nps) => <option key={nps} value={nps}>{nps} / DN{PIPE_SIZES.find((row) => row.standard === pipeStandard && row.nps === nps)?.dn}</option>)}</select></label>
-          <label>Schedule / series<select value={normalizedSchedule} onChange={(e) => setPipeSchedule(e.target.value)}>{pipeSchedules.map((schedule) => <option key={schedule}>{schedule}</option>)}</select></label>
-        </div>
-        <div className="pipeSummary">DN{resolvedPipeRow.dn} · {resolvedPipeRow.nps} · {resolvedPipeRow.schedule} · OD {resolvedPipeRow.odMm} mm · ID {resolvedPipeRow.idMm} mm · wall {(resolvedPipeRow.odMm - resolvedPipeRow.idMm) / 2} mm</div>
-        <div className="pipeGuide">{lang === 'ko' ? `✅ 선택됨: ${resolvedPipeRow.standard} · ${resolvedPipeRow.nps} / DN${resolvedPipeRow.dn} · ${resolvedPipeRow.schedule} (OD ${resolvedPipeRow.odMm} mm, ID ${resolvedPipeRow.idMm} mm) — 아래 표에서 다른 사이즈를 클릭해 선택하세요.` : `✅ Selected: ${resolvedPipeRow.standard} · ${resolvedPipeRow.nps} / DN${resolvedPipeRow.dn} · ${resolvedPipeRow.schedule} (OD ${resolvedPipeRow.odMm} mm, ID ${resolvedPipeRow.idMm} mm) — click a row in the table below to change.`}</div>
-        <div className="velocityInputs">
-          <NumberWithUnit label="Mass flow" value={pipeFlow} onValue={setPipeFlow} unit={pipeFlowUnit} units={['kg/h', 't/h', 'kg/s', 'lb/h'] as FlowUnit[]} onUnit={setPipeFlowUnit} />
-          <NumberWithFixedUnit label="Specific volume" value={effectiveSpecificVolume} unit="m³/kg" onValue={setVelocitySpecificVolume} disabled={useSteamSv && Boolean(state)} helper={state ? (useSteamSv ? 'from steam result' : 'manual') : 'default editable'} />
-          {state && <label className="steamSvToggle"><input type="checkbox" checked={useSteamSv} onChange={() => setUseSteamSv(!useSteamSv)} />use steam result</label>}
-          <NumberWithFixedUnit label="Pipe ID" value={resolvedPipeRow.idMm} unit="mm" onValue={() => undefined} disabled helper="from table" />
-        </div>
-        <div className="resultCards compact"><Metric label="Velocity" value={format(velocity.velocityMS)} unit="m/s" /><Metric label="Vol. flow" value={format(velocity.volumetricM3S)} unit="m³/s" /><Metric label="Mass flow" value={format(velocity.kgS)} unit="kg/s" /></div>
-        {velocity.velocityMS > 60 && <div className="warn">⚠ Velocity {format(velocity.velocityMS)} m/s exceeds steam guideline (~25–40 m/s) — erosion risk, check pipe spec</div>}
-        {velocity.velocityMS > 0 && velocity.velocityMS < 5 && <div className="warn subtle">Velocity low ({format(velocity.velocityMS)} m/s) — may cause condensate accumulation in steam lines</div>}
-        <div className="pipeTableSection"><div className="pipeTableLabel">{t.table} · {pipeStandard} · {pipeRowsForStandard.length} rows</div><PipeTable rows={pipeRowsForStandard} selected={resolvedPipeRow} onPick={(row) => { setPipeStandard(row.standard); setPipeNps(row.nps); setPipeSchedule(row.schedule); }} expanded={showPipeTable} onToggle={() => setShowPipeTable(!showPipeTable)} /></div>
-        <Help title={t.help}>{t.pipeHelp}</Help>
-        <Help title={lang === 'ko' ? '참고사항' : 'Reference'}>{t.disclaimer}</Help>
-        {/* Ad space */}
-        <div className="adSlot" aria-label={t.adLabel}>{t.adLabel}</div>
-      </section>
+    {activeTab === 'pipe' && <section className="workspace pipeWorkspace">
+      {/* Steam state summary at top */}
+      {state && <div className="pipeSteamSummary">
+        <span className="pipeSteamLabel">Steam state</span>
+        <span className="pipeSteamState">P={format(pressureFromMPa(state.pressure, inputs.pressureUnit))} {inputs.pressureUnit}</span>
+        <span>T={format(tempFromK(state.temperature, inputs.temperatureUnit))} {inputs.temperatureUnit}</span>
+        <span>h={format(state.enthalpy)} kJ/kg</span>
+        <span>s={format(state.entropy)} kJ/kg·K</span>
+        <span>v={format(state.specificVolume, 4)} m³/kg</span>
+        <span className={`pipeSteamRegion ${regionTone(state)}`}>{regionLabel(state)}</span>
+      </div>}
+      {!state && <div className="pipeSteamSummary dimmed"><span className="pipeSteamLabel">Steam state</span><span>— Go to Steam Table tab first to calculate state</span></div>}
+      <div className="pipeTwoCol">
+        {/* Left: Inputs + Results */}
+        <section className="panel pipeInputPanel">
+          <h2>{t.pipeTitle}</h2>
+          <div className="pipeCascade">
+            <label>Code / standard<select value={pipeStandard} onChange={(e) => { const standard = e.target.value as PipeStandard; const firstSize = getPipeSizes(standard)[0]; const firstSchedule = getPipeSchedules(standard, firstSize)[0]; setPipeStandard(standard); setPipeNps(firstSize); setPipeSchedule(firstSchedule); }}>{standards.map((standard) => <option key={standard}>{standard}</option>)}</select></label>
+            <label>DN / NPS<select value={normalizedPipeNps} onChange={(e) => { const nps = e.target.value; const firstSchedule = getPipeSchedules(pipeStandard, nps)[0]; setPipeNps(nps); setPipeSchedule(firstSchedule); }}>{pipeSizes.map((nps) => <option key={nps} value={nps}>{nps} / DN{PIPE_SIZES.find((row) => row.standard === pipeStandard && row.nps === nps)?.dn}</option>)}</select></label>
+            <label>Schedule / series<select value={normalizedSchedule} onChange={(e) => setPipeSchedule(e.target.value)}>{pipeSchedules.map((schedule) => <option key={schedule}>{schedule}</option>)}</select></label>
+          </div>
+          <div className="pipeSummary">DN{resolvedPipeRow.dn} · {resolvedPipeRow.nps} · {resolvedPipeRow.schedule} · OD {resolvedPipeRow.odMm} mm · ID {resolvedPipeRow.idMm} mm · wall {(resolvedPipeRow.odMm - resolvedPipeRow.idMm) / 2} mm</div>
+          <div className="pipeGuide">{lang === 'ko' ? `✅ 선택됨: ${resolvedPipeRow.standard} · ${resolvedPipeRow.nps} / DN${resolvedPipeRow.dn} · ${resolvedPipeRow.schedule}` : `✅ Selected: ${resolvedPipeRow.standard} · ${resolvedPipeRow.nps} / DN${resolvedPipeRow.dn} · ${resolvedPipeRow.schedule}`}</div>
+          <div className="velocityInputs">
+            <NumberWithUnit label="Mass flow" value={pipeFlow} onValue={setPipeFlow} unit={pipeFlowUnit} units={['kg/h', 't/h', 'kg/s', 'lb/h'] as FlowUnit[]} onUnit={setPipeFlowUnit} />
+            <NumberWithFixedUnit label="Specific volume" value={effectiveSpecificVolume} unit="m³/kg" onValue={setVelocitySpecificVolume} disabled={useSteamSv && Boolean(state)} helper={state ? (useSteamSv ? 'from steam result' : 'manual') : 'default editable'} />
+            {state && <label className="steamSvToggle"><input type="checkbox" checked={useSteamSv} onChange={() => setUseSteamSv(!useSteamSv)} />use steam result</label>}
+            <NumberWithFixedUnit label="Pipe ID" value={resolvedPipeRow.idMm} unit="mm" onValue={() => undefined} disabled helper="from table" />
+          </div>
+          <div className="resultCards compact"><Metric label="Velocity" value={format(velocity.velocityMS)} unit="m/s" /><Metric label="Vol. flow" value={format(velocity.volumetricM3S)} unit="m³/s" /><Metric label="Mass flow" value={format(velocity.kgS)} unit="kg/s" /></div>
+          {velocity.velocityMS > 60 && <div className="warn">⚠ Velocity {format(velocity.velocityMS)} m/s exceeds steam guideline (~25–40 m/s) — erosion risk, check pipe spec</div>}
+          {velocity.velocityMS > 0 && velocity.velocityMS < 5 && <div className="warn subtle">Velocity low ({format(velocity.velocityMS)} m/s) — may cause condensate accumulation in steam lines</div>}
+          <Help title={t.help}>{t.pipeHelp}</Help>
+          <Help title={lang === 'ko' ? '참고사항' : 'Reference'}>{t.disclaimer}</Help>
+        </section>
+        {/* Right: Pipe Table */}
+        <section className="panel pipeTablePanel">
+          <PipeTable rows={pipeRowsForStandard} selected={resolvedPipeRow} onPick={(row) => { setPipeStandard(row.standard); setPipeNps(row.nps); setPipeSchedule(row.schedule); }} expanded={showPipeTable} onToggle={() => setShowPipeTable(!showPipeTable)} />
+          <div className="adSlot" aria-label={t.adLabel}>{t.adLabel}</div>
+        </section>
+      </div>
     </section>}
   </main>;
 }

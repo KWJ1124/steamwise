@@ -150,7 +150,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; }
 .app { min-height: 100vh; padding: 10px; background: var(--bg-gradient); }
-.topBar, .panel, .toolTabs, .inlineUnit {
+.topBar, .toolTabs, .inlineUnit {
   max-width: 1440px; margin-left: auto; margin-right: auto;
 }
 .topBar, .panel, .toolTabs {
@@ -229,6 +229,25 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .tinyButton, .secondaryButton { background: var(--surface); color: var(--accent-solid); border: 1px solid var(--border-accent); box-shadow: none; padding: 5px 8px; font-size: 11px; border-radius: 999px; }
 .workspace { max-width: 1440px; margin: 8px auto 0; }
 .singleWorkspace { display: grid; grid-template-columns: 1fr; }
+
+/* Pipe workspace: steam summary + 2-column layout */
+.pipeWorkspace { max-width: 1440px; margin: 8px auto 0; }
+.pipeTwoCol { display: grid; grid-template-columns: 400px 1fr; gap: 8px; }
+.pipeInputPanel { min-width: 0; }
+.pipeTablePanel { min-width: 0; display: flex; flex-direction: column; }
+.pipeTablePanel .pipeTableSection { flex: 1; display: flex; flex-direction: column; }
+.pipeTablePanel .pipeTableWrap { flex: 1; max-height: none; }
+.pipeSteamSummary {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 8px; padding: 8px 14px; border-radius: 12px;
+  background: var(--accent-bg); border: 1px solid var(--accent-border);
+  font-size: 12px; line-height: 1.4;
+}
+.pipeSteamSummary.dimmed { background: var(--help-bg); border-color: var(--help-border); color: var(--help-text); }
+.pipeSteamLabel { font-weight: 900; color: var(--accent-solid); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.pipeSteamState { font-weight: 900; }
+.pipeSteamRegion { font-size: 10px; padding: 2px 6px; border-radius: 6px; font-weight: 900; }
+.pipeSteamSummary span:not(.pipeSteamLabel):not(.pipeSteamRegion) { color: var(--text-primary); }
 .muted, .explain { color: var(--text-muted); line-height: 1.5; font-size: 12px; }
 .steamTable { display: grid; gap: 6px; }
 .steamRow { display: grid; grid-template-columns: 36px 70px 1fr; gap: 6px; align-items: center; padding: 8px; border: 1px solid var(--metric-border); border-radius: 13px; background: var(--surface); }
@@ -259,7 +278,7 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 .stateBadge.dense { background: var(--state-dense-bg); color: var(--state-dense-text); }
 
 /* Chart */
-.chart { flex: 1; width: 100%; min-height: 440px; height: auto !important; }
+.chart { flex: 1; width: 100%; min-height: 440px; }
 @media (min-height: 900px) { .chart { min-height: 520px; } }
 
 /* Pipe */
@@ -323,6 +342,7 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
   .chartPanelV2 { min-height: 320px; }
   .historyPanel { max-height: none; }
   .chart { min-height: 320px; }
+  .pipeTwoCol { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
   .app { padding: 8px; }
@@ -346,5 +366,7 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
   .unitInput { grid-template-columns: 1fr 65px; }
   .topBar h1 { font-size: 20px; }
   .warningBanner { font-size: 10px; padding: 6px 10px; }
+  .pipeSteamSummary { font-size: 10px; gap: 6px; padding: 6px 10px; flex-wrap: wrap; }
+  .pipeSteamLabel { font-size: 9px; }
   .metric strong { font-size: 15px; }
 }
