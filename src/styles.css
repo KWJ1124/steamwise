@@ -296,10 +296,12 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 .pipeTableHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .pipeTableTitle { margin: 0; font-size: 14px; white-space: nowrap; }
 .pipeTableFilter select { font-size: 11px; padding: 4px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); min-width: 160px; max-height: 80px; overflow-y: auto; }
-.pipeTableWrap { margin-top: 8px; overflow: auto; border: 1px solid var(--table-border); border-radius: 13px; background: var(--table-bg); max-height: 400px; }
-.pipeTable { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 600px; }
-.pipeTable th, .pipeTable td { padding: 7px 8px; border-bottom: 1px solid var(--table-row-border); text-align: left; white-space: nowrap; }
-.pipeTable th { background: var(--table-header-bg); color: var(--text-secondary); font-weight: 900; position: sticky; top: 0; font-size: 11px; }
+.pipeTableWrap { margin-top: 4px; overflow: auto; border: 1px solid var(--table-border); border-radius: 13px; background: var(--table-bg); max-height: 400px; }
+.pipeTable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; min-width: 700px; }
+.pipeTable th { position: sticky; top: 0; z-index: 2; background: var(--table-header-bg, var(--surface-raised)); padding: 8px; border-bottom: 2px solid var(--table-border); text-align: left; white-space: nowrap; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); }
+.pipeTable td { padding: 7px 8px; border-bottom: 1px solid var(--table-row-border); text-align: left; white-space: nowrap; }
+.pipeTableSearch { width: 100%; margin-bottom: 4px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); font-size: 12px; box-sizing: border-box; }
+.pipeTableSearch:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-shadow); }
 .pipeTable tr { cursor: pointer; }
 .pipeTable tr:hover { background: var(--surface-hover); }
 .pipeTable tr.selected { background: var(--surface-selected); color: var(--accent-solid); font-weight: 900; }

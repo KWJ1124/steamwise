@@ -384,11 +384,19 @@ function NumberInput({ label, value, onValue, disabled = false, helper }: { labe
 function NumberWithUnit<T extends string>({ label, value, onValue, unit, units, onUnit }: { label: string; value: number; onValue: (value: number) => void; unit: T; units: readonly T[]; onUnit: (unit: T) => void }) { return <label>{label}<div className="unitInput"><DecimalTextInput value={value} onValue={onValue} /><select value={unit} onChange={(e) => onUnit(e.target.value as T)}>{units.map((u) => <option key={u}>{u}</option>)}</select></div></label>; }
 function NumberWithFixedUnit({ label, value, unit, onValue, disabled = false, helper }: { label: string; value: number; unit: string; onValue: (value: number) => void; disabled?: boolean; helper?: string }) { return <label>{label}<div className="unitInput fixed"><DecimalTextInput value={value} disabled={disabled} onValue={onValue} /><span className="unitBadge">{unit}</span></div>{helper && <small className="fieldHelper">{helper}</small>}</label>; }
 function PipeTable({ rows, selected, onPick, expanded, onToggle }: { rows: PipeSizeRow[]; selected: PipeSizeRow; onPick: (row: PipeSizeRow) => void; expanded: boolean; onToggle: () => void }) {
+  const [filterText, setFilterText] = useState('');
+  const filtered = filterText ? rows.filter((row) =>
+    [row.standard, row.nps, `DN${row.dn}`, row.schedule, String(row.odMm), String(row.idMm), String(((row.odMm - row.idMm) / 2).toFixed(1))]
+      .some((v) => v.toLowerCase().includes(filterText.toLowerCase()))
+  ) : rows;
   return <div className="pipeTableSection">
     <button className="pipeTableToggle" onClick={onToggle}>
-      {expanded ? '▲' : '▼'} Pipe table · {rows.length} rows
+      {expanded ? '▲' : '▼'} Pipe table · {filtered.length} / {rows.length} rows
     </button>
-    {expanded && <div className="pipeTableWrap"><table className="pipeTable"><thead><tr><th>Code</th><th>DN</th><th>NPS/A</th><th>Sch</th><th>OD mm</th><th>ID mm</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.standard}-${row.nps}-${row.schedule}`} className={row.standard === selected.standard && row.nps === selected.nps && row.schedule === selected.schedule ? 'selected' : ''} onClick={() => onPick(row)}><td>{row.standard}</td><td>DN{row.dn}</td><td>{row.nps}</td><td>{row.schedule}</td><td>{row.odMm}</td><td>{row.idMm}</td></tr>)}</tbody></table></div>}
+    {expanded && <>
+      <input className="pipeTableSearch" type="text" placeholder="Search DN, NPS, schedule, wall..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
+      <div className="pipeTableWrap"><table className="pipeTable"><thead><tr><th>Code</th><th>DN</th><th>NPS/A</th><th>Sch</th><th>OD mm</th><th>ID mm</th><th>Wall mm</th></tr></thead><tbody>{filtered.map((row) => <tr key={`${row.standard}-${row.nps}-${row.schedule}`} className={row.standard === selected.standard && row.nps === selected.nps && row.schedule === selected.schedule ? 'selected' : ''} onClick={() => onPick(row)}><td>{row.standard}</td><td>DN{row.dn}</td><td>{row.nps}</td><td>{row.schedule}</td><td>{row.odMm}</td><td>{row.idMm}</td><td>{((row.odMm - row.idMm) / 2).toFixed(1)}</td></tr>)}</tbody></table></div>
+    </>}
   </div>;
 }
 function Metric({ label, value, unit }: { label: string; value: string; unit: string }) { return <div className="metric"><span>{label}</span><strong>{value}</strong><em>{unit}</em></div>; }
