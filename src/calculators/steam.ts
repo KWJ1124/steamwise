@@ -1,6 +1,27 @@
 import { solvePT, solvePH, solvePS, solvePx, solveTH, solveTS, Region, type SteamState } from 'iapws-if97';
 
 export type SteamInputPair = 'PT' | 'PH' | 'PS' | 'Px' | 'TH' | 'TS';
+export type SteamTableField = 'pressure' | 'temperature' | 'enthalpy' | 'entropy' | 'quality' | 'specificVolume';
+export type SteamFieldChecks = Record<SteamTableField, boolean>;
+
+const FIELD_PAIR_MAP: Record<string, SteamInputPair> = {
+  'pressure+temperature': 'PT',
+  'enthalpy+pressure': 'PH',
+  'entropy+pressure': 'PS',
+  'pressure+quality': 'Px',
+  'enthalpy+temperature': 'TH',
+  'entropy+temperature': 'TS'
+};
+
+export function getCheckedSteamFields(checks: SteamFieldChecks): SteamTableField[] {
+  return (Object.keys(checks) as SteamTableField[]).filter((field) => checks[field]);
+}
+
+export function selectedFieldsToPair(fields: SteamTableField[]): SteamInputPair | undefined {
+  if (fields.length !== 2) return undefined;
+  const key = [...fields].sort().join('+');
+  return FIELD_PAIR_MAP[key];
+}
 
 export interface SteamInputs {
   pair: SteamInputPair;

@@ -36,6 +36,22 @@ export const PIPE_SIZES: PipeSizeRow[] = [
   { standard: 'DIN/EN ISO', nps: 'DN100', dn: '100', schedule: 'Series approx.', odMm: 114.3, idMm: 107.1, note: 'Approximate EN series quick reference' }
 ];
 
+export function getPipeStandards(): PipeStandard[] {
+  return Array.from(new Set(PIPE_SIZES.map((row) => row.standard)));
+}
+
+export function getPipeSizes(standard: PipeStandard): string[] {
+  return Array.from(new Set(PIPE_SIZES.filter((row) => row.standard === standard).map((row) => row.nps)));
+}
+
+export function getPipeSchedules(standard: PipeStandard, nps: string): string[] {
+  return Array.from(new Set(PIPE_SIZES.filter((row) => row.standard === standard && row.nps === nps).map((row) => row.schedule)));
+}
+
+export function findPipeSize(standard: PipeStandard, nps: string, schedule: string): PipeSizeRow | undefined {
+  return PIPE_SIZES.find((row) => row.standard === standard && row.nps === nps && row.schedule === schedule);
+}
+
 export function flowToKgS(value: number, unit: FlowUnit): number {
   if (unit === 'kg/s') return value;
   if (unit === 'kg/h') return value / 3600;
