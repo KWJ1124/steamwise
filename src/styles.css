@@ -165,6 +165,14 @@ body { margin: 0; }
 .subtitle { color: var(--text-secondary); font-size: 12px; margin: 0; }
 .topActions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 
+/* Warning banner */
+.warningBanner {
+  max-width: 1440px; margin: 6px auto 0; padding: 8px 14px;
+  border-radius: 12px; border: 1px solid var(--warn-border);
+  background: var(--warn-bg); color: var(--warn-text);
+  font-size: 11px; line-height: 1.45; font-weight: 700;
+}
+
 /* Inline Unit Converter */
 .inlineUnit {
   display: flex; align-items: center; gap: 6px;
@@ -251,8 +259,8 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 .stateBadge.dense { background: var(--state-dense-bg); color: var(--state-dense-text); }
 
 /* Chart */
-.chart { flex: 1; width: 100%; min-height: 320px; height: auto !important; }
-@media (min-height: 900px) { .chart { min-height: 420px; } }
+.chart { flex: 1; width: 100%; min-height: 440px; height: auto !important; }
+@media (min-height: 900px) { .chart { min-height: 520px; } }
 
 /* Pipe */
 .pipeCascade, .velocityInputs { display: grid; gap: 8px; margin-top: 8px; }
@@ -264,6 +272,8 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 .pipeTableDetails, .helpDetails { margin-top: 10px; }
 .pipeTableDetails summary, .helpDetails summary { display: inline-flex; padding: 7px 10px; border-radius: 11px; background: var(--surface); border: 1px solid var(--help-border); color: var(--accent-solid); font-weight: 900; cursor: pointer; font-size: 12px; }
 .helpDetails p { margin: 8px 0 0; padding: 10px; border-radius: 12px; background: var(--help-bg); color: var(--help-text); line-height: 1.5; font-size: 12px; }
+.pipeTableToggle { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; font-size: 12px; border-radius: 11px; background: var(--surface); color: var(--accent-solid); border: 1px solid var(--border-accent); box-shadow: none; cursor: pointer; }
+.pipeTableToggle:hover { background: var(--surface-hover); }
 .pipeTableWrap { margin-top: 8px; overflow: auto; border: 1px solid var(--table-border); border-radius: 13px; background: var(--table-bg); max-height: 400px; }
 .pipeTable { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 600px; }
 .pipeTable th, .pipeTable td { padding: 7px 8px; border-bottom: 1px solid var(--table-row-border); text-align: left; white-space: nowrap; }
@@ -301,13 +311,18 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 .warn.subtle { background: var(--warn-subtle-bg); border-color: var(--warn-subtle-border); color: var(--warn-subtle-text); }
 .error { border: 1px solid var(--error-border); background: var(--error-bg); color: var(--error-text); }
 
+/* Ad space */
+.adSlot { margin-top: 12px; padding: 24px 12px; border-radius: 12px; border: 1px dashed var(--border-strong); background: var(--surface-secondary); color: var(--text-disabled); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; text-align: center; font-weight: 800; }
+
 /* Mini mode */
 .mini .chartPanelV2 { display: none; }
 .mini .historyPanel { display: none; }
 
 @media (max-width: 1180px) {
   .steamWorkspaceV2 { grid-template-columns: 1fr; }
+  .chartPanelV2 { min-height: 320px; }
   .historyPanel { max-height: none; }
+  .chart { min-height: 320px; }
 }
 @media (max-width: 720px) {
   .app { padding: 8px; }
@@ -318,9 +333,18 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
   .tab { min-height: 36px; padding: 7px; }
   .panel { padding: 10px; border-radius: 14px; }
   .historyPanel { max-height: none; }
-  .inlineUnit { font-size: 11px; padding: 5px 8px; }
-  .unitInlineInput { width: 60px; }
+  .inlineUnit { font-size: 11px; padding: 5px 8px; gap: 4px; }
+  .inlineUnit select { min-width: 55px; font-size: 10px; padding: 3px 5px; }
+  .unitInlineInput { width: 50px; }
+  .unitInlineResult { font-size: 12px; min-width: 45px; }
   .pipeCascade, .velocityInputs { grid-template-columns: 1fr; }
   .resultCards { grid-template-columns: 1fr; }
   .chart { min-height: 220px; }
+  .steamRow { grid-template-columns: 30px 55px 1fr; gap: 4px; padding: 6px; }
+  .steamName b { font-size: 12px; }
+  .steamCheck { font-size: 11px; }
+  .unitInput { grid-template-columns: 1fr 65px; }
+  .topBar h1 { font-size: 20px; }
+  .warningBanner { font-size: 10px; padding: 6px 10px; }
+  .metric strong { font-size: 15px; }
 }

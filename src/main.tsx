@@ -53,7 +53,9 @@ const copy = {
     pipeHelp: '코드 → DN/NPS → 스케줄 순서로 선택. 모든 주요 코드(ASME/JIS/DIN/KS)를 포함한 종합 배관 데이터입니다. 최종 설계는 최신 공식 표준과 프로젝트 piping class로 확인하세요.',
     steamHelp: '상태량 2개를 체크하세요. P+T, P+h, P+s, P+x, T+h, T+s 지원. 체크 안 한 필드는 IF97 계산값입니다.',
     unitLabel: '단위 변환',
-    disclaimer: '⚠ Engineering reference only. All values are quick-check estimates. Final design requires verification against latest official standards, vendor documentation, and project-specific piping/equipment class. No liability assumed.'
+    adLabel: '광고',
+    disclaimer: '⚠ Engineering reference only. All values are quick-check estimates. Final design requires verification against latest official standards, vendor documentation, and project-specific piping/equipment class. No liability assumed.',
+    warningBanner: '⚠️ 경고: 이 도구는 엔지니어링 참고용으로만 제공됩니다. 모든 계산 결과는 설계 전 최신 공식 표준, 벤더 문서, 프로젝트별 piping/equipment class로 반드시 재확인하세요. 본 사이트는 계산 결과로 인한 모든 법적 책임을 지지 않습니다.'
   },
   en: {
     tagline: 'IAPWS-IF97 · SteamWise',
@@ -66,7 +68,9 @@ const copy = {
     pipeHelp: 'Select code → DN/NPS → schedule. Covers all major codes (ASME/JIS/DIN/KS) with comprehensive size data. Verify final design against official standards and project piping class.',
     steamHelp: 'Check two independent properties. Supported pairs: P+T, P+h, P+s, P+x, T+h, T+s. Unchecked fields are IF97 calculated results.',
     unitLabel: 'Unit converter',
-    disclaimer: '⚠ Engineering reference only. All values are quick-check estimates. Final design requires verification against latest official standards, vendor documentation, and project-specific piping/equipment class. No liability assumed.'
+    adLabel: 'Advertisement',
+    disclaimer: '⚠ Engineering reference only. All values are quick-check estimates. Final design requires verification against latest official standards, vendor documentation, and project-specific piping/equipment class. No liability assumed.',
+    warningBanner: '⚠️ WARNING: This tool is for engineering reference only. All calculated values must be verified against latest official standards, vendor documentation, and project-specific piping/equipment class before final design. This site assumes no liability for any consequences resulting from the use of these calculations.'
   }
 };
 
@@ -84,7 +88,7 @@ function SteamChart({ records, current, theme }: { records: RecordItem[]; curren
   useEffect(() => {
     if (!ref.current) return;
     const chart = echarts.init(ref.current, undefined, { renderer: 'svg' });
-    const dome = [[0.6, 20], [1.2, 80], [2.1, 140], [3.2, 200], [4.4, 260], [5.2, 320], [4.8, 374], [6.8, 320], [7.5, 260], [7.2, 200], [6.7, 140], [6.0, 80], [5.1, 20]];
+    const dome = [[0, 0.01], [0.3, 20], [0.57, 40], [0.83, 60], [1.08, 80], [1.31, 100], [1.53, 120], [1.74, 140], [1.94, 160], [2.14, 180], [2.33, 200], [2.52, 220], [2.7, 240], [2.88, 260], [3.07, 280], [3.25, 300], [3.35, 310], [3.45, 320], [3.55, 330], [3.66, 340], [3.78, 350], [3.84, 355], [3.92, 360], [4, 365], [4.11, 370], [4.18, 372], [4.24, 373], [4.41, 373.95], [4.63, 373], [4.7, 372], [4.8, 370], [4.95, 365], [5.05, 360], [5.14, 355], [5.21, 350], [5.34, 340], [5.44, 330], [5.54, 320], [5.62, 310], [5.71, 300], [5.86, 280], [6, 260], [6.14, 240], [6.28, 220], [6.43, 200], [6.58, 180], [6.75, 160], [6.93, 140], [7.13, 120], [7.35, 100], [7.61, 80], [7.91, 60], [8.26, 40], [8.67, 20], [9.16, 0.01]];
     const pts = [...records.slice(-8), ...(current ? [current] : [])];
     const isDark = theme === 'dark';
     chart.setOption({
@@ -151,6 +155,7 @@ function App() {
   const effectiveSpecificVolume = (useSteamSv && state?.specificVolume) ? state.specificVolume : velocitySpecificVolume;
   const velocity = calculateVelocity(pipeFlow, pipeFlowUnit, effectiveSpecificVolume, resolvedPipeRow.idMm);
   const pipeRowsForStandard = PIPE_SIZES.filter((row) => row.standard === pipeStandard);
+  const [showPipeTable, setShowPipeTable] = useState(true);
 
   // Unit converter (inline)
   const [unitCategory, setUnitCategory] = useState<UnitCategory>('pressure');
@@ -192,6 +197,9 @@ function App() {
         <button className="tinyButton" onClick={() => setMini(!mini)}>{mini ? t.full : t.mini}</button>
       </div>
     </header>
+
+    {/* ⚠️ Legal warning banner — always visible */}
+    <div className="warningBanner">{t.warningBanner}</div>
 
     {/* Inline Unit Converter — always visible below header */}
     <div className="inlineUnit">
@@ -252,6 +260,7 @@ function App() {
             <button className="historyDelete" onClick={(e) => { e.stopPropagation(); deleteRecord(r.id); }} title={lang === 'ko' ? '삭제' : 'Delete'}>✕</button>
           </div>)}
         </div>
+        <div className="adSlot" aria-label={t.adLabel}>{t.adLabel}</div>
         {t.disclaimer && <Help title={lang === 'ko' ? '참고사항' : 'Reference'}>{t.disclaimer}</Help>}
       </section>
     </section>}
@@ -275,9 +284,11 @@ function App() {
         <div className="resultCards compact"><Metric label="Velocity" value={format(velocity.velocityMS)} unit="m/s" /><Metric label="Vol. flow" value={format(velocity.volumetricM3S)} unit="m³/s" /><Metric label="Mass flow" value={format(velocity.kgS)} unit="kg/s" /></div>
         {velocity.velocityMS > 60 && <div className="warn">⚠ Velocity {format(velocity.velocityMS)} m/s exceeds steam guideline (~25–40 m/s) — erosion risk, check pipe spec</div>}
         {velocity.velocityMS > 0 && velocity.velocityMS < 5 && <div className="warn subtle">Velocity low ({format(velocity.velocityMS)} m/s) — may cause condensate accumulation in steam lines</div>}
-        <div className="pipeTableSection"><div className="pipeTableLabel">{t.table} · {pipeStandard} · {pipeRowsForStandard.length} rows</div><PipeTable rows={pipeRowsForStandard} selected={resolvedPipeRow} onPick={(row) => { setPipeStandard(row.standard); setPipeNps(row.nps); setPipeSchedule(row.schedule); }} /></div>
+        <div className="pipeTableSection"><div className="pipeTableLabel">{t.table} · {pipeStandard} · {pipeRowsForStandard.length} rows</div><PipeTable rows={pipeRowsForStandard} selected={resolvedPipeRow} onPick={(row) => { setPipeStandard(row.standard); setPipeNps(row.nps); setPipeSchedule(row.schedule); }} expanded={showPipeTable} onToggle={() => setShowPipeTable(!showPipeTable)} /></div>
         <Help title={t.help}>{t.pipeHelp}</Help>
         <Help title={lang === 'ko' ? '참고사항' : 'Reference'}>{t.disclaimer}</Help>
+        {/* Ad space */}
+        <div className="adSlot" aria-label={t.adLabel}>{t.adLabel}</div>
       </section>
     </section>}
   </main>;
@@ -324,7 +335,14 @@ function DecimalTextInput({ value, onValue, disabled = false }: { value: number;
 function NumberInput({ label, value, onValue, disabled = false, helper }: { label: string; value: number; onValue: (value: number) => void; disabled?: boolean; helper?: string }) { return <label>{label}<DecimalTextInput value={value} disabled={disabled} onValue={onValue} />{helper && <small className="fieldHelper">{helper}</small>}</label>; }
 function NumberWithUnit<T extends string>({ label, value, onValue, unit, units, onUnit }: { label: string; value: number; onValue: (value: number) => void; unit: T; units: readonly T[]; onUnit: (unit: T) => void }) { return <label>{label}<div className="unitInput"><DecimalTextInput value={value} onValue={onValue} /><select value={unit} onChange={(e) => onUnit(e.target.value as T)}>{units.map((u) => <option key={u}>{u}</option>)}</select></div></label>; }
 function NumberWithFixedUnit({ label, value, unit, onValue, disabled = false, helper }: { label: string; value: number; unit: string; onValue: (value: number) => void; disabled?: boolean; helper?: string }) { return <label>{label}<div className="unitInput fixed"><DecimalTextInput value={value} disabled={disabled} onValue={onValue} /><span className="unitBadge">{unit}</span></div>{helper && <small className="fieldHelper">{helper}</small>}</label>; }
-function PipeTable({ rows, selected, onPick }: { rows: PipeSizeRow[]; selected: PipeSizeRow; onPick: (row: PipeSizeRow) => void }) { return <div className="pipeTableWrap"><table className="pipeTable"><thead><tr><th>Code</th><th>DN</th><th>NPS/A</th><th>Sch</th><th>OD mm</th><th>ID mm</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.standard}-${row.nps}-${row.schedule}`} className={row.standard === selected.standard && row.nps === selected.nps && row.schedule === selected.schedule ? 'selected' : ''} onClick={() => onPick(row)}><td>{row.standard}</td><td>DN{row.dn}</td><td>{row.nps}</td><td>{row.schedule}</td><td>{row.odMm}</td><td>{row.idMm}</td></tr>)}</tbody></table></div>; }
+function PipeTable({ rows, selected, onPick, expanded, onToggle }: { rows: PipeSizeRow[]; selected: PipeSizeRow; onPick: (row: PipeSizeRow) => void; expanded: boolean; onToggle: () => void }) {
+  return <div className="pipeTableSection">
+    <button className="pipeTableToggle" onClick={onToggle}>
+      {expanded ? '▲' : '▼'} Pipe table · {rows.length} rows
+    </button>
+    {expanded && <div className="pipeTableWrap"><table className="pipeTable"><thead><tr><th>Code</th><th>DN</th><th>NPS/A</th><th>Sch</th><th>OD mm</th><th>ID mm</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.standard}-${row.nps}-${row.schedule}`} className={row.standard === selected.standard && row.nps === selected.nps && row.schedule === selected.schedule ? 'selected' : ''} onClick={() => onPick(row)}><td>{row.standard}</td><td>DN{row.dn}</td><td>{row.nps}</td><td>{row.schedule}</td><td>{row.odMm}</td><td>{row.idMm}</td></tr>)}</tbody></table></div>}
+  </div>;
+}
 function Metric({ label, value, unit }: { label: string; value: string; unit: string }) { return <div className="metric"><span>{label}</span><strong>{value}</strong><em>{unit}</em></div>; }
 
 createRoot(document.getElementById('root')!).render(<App />);
