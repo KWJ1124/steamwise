@@ -219,6 +219,7 @@ body { margin: 0; }
 .historyLabel { display: block; font-size: 11px; font-weight: 800; color: var(--text-primary); }
 .historyRegion { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--accent-bg); color: var(--accent-solid); font-size: 9px; font-weight: 800; margin: 1px 0; }
 .historyValues { display: block; color: var(--text-subtle); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.historyValues strong { color: var(--text-primary); font-size: 11px; }
 .historyDelete { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: transparent; color: var(--text-subtle); font-size: 10px; flex-shrink: 0; box-shadow: none; padding: 0; }
 .historyDelete:hover { background: var(--error-bg); color: var(--error-text); }
 

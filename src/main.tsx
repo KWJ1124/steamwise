@@ -85,9 +85,11 @@ const fieldLabels: Record<SteamTableField, { symbol: string; ko: string; en: str
 
 function SteamChart({ records, current, theme }: { records: RecordItem[]; current?: RecordItem; theme: Theme }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<echarts.ECharts | null>(null);
   useEffect(() => {
     if (!ref.current) return;
-    const chart = echarts.init(ref.current, undefined, { renderer: 'svg' });
+    if (!chartRef.current) chartRef.current = echarts.init(ref.current, undefined, { renderer: 'svg' });
+    const chart = chartRef.current;
     const dome = [[0, 0.01], [0.3, 20], [0.57, 40], [0.83, 60], [1.08, 80], [1.31, 100], [1.53, 120], [1.74, 140], [1.94, 160], [2.14, 180], [2.33, 200], [2.52, 220], [2.7, 240], [2.88, 260], [3.07, 280], [3.25, 300], [3.35, 310], [3.45, 320], [3.55, 330], [3.66, 340], [3.78, 350], [3.84, 355], [3.92, 360], [4, 365], [4.11, 370], [4.18, 372], [4.24, 373], [4.41, 373.95], [4.63, 373], [4.7, 372], [4.8, 370], [4.95, 365], [5.05, 360], [5.14, 355], [5.21, 350], [5.34, 340], [5.44, 330], [5.54, 320], [5.62, 310], [5.71, 300], [5.86, 280], [6, 260], [6.14, 240], [6.28, 220], [6.43, 200], [6.58, 180], [6.75, 160], [6.93, 140], [7.13, 120], [7.35, 100], [7.61, 80], [7.91, 60], [8.26, 40], [8.67, 20], [9.16, 0.01]];
     const pts = [...records.slice(-8), ...(current ? [current] : [])];
     const isDark = theme === 'dark';
@@ -103,8 +105,10 @@ function SteamChart({ records, current, theme }: { records: RecordItem[]; curren
     });
     const resize = () => chart.resize();
     window.addEventListener('resize', resize);
-    return () => { window.removeEventListener('resize', resize); chart.dispose(); };
+    return () => { window.removeEventListener('resize', resize); };
   }, [records, current, theme]);
+  // Dispose chart only on unmount
+  useEffect(() => () => { chartRef.current?.dispose(); chartRef.current = null; }, []);
   return <div ref={ref} className="chart" />;
 }
 
@@ -278,7 +282,7 @@ function App() {
             <div className="historyBody">
               <span className="historyLabel">{r.label}</span>
               <span className="historyRegion">{r.region}</span>
-              <span className="historyValues">P={format(r.p)} T={format(r.t)} h={format(r.h)} s={format(r.s, 3)} {r.x !== null ? `x=${format(r.x, 3)}` : ''}</span>
+              <span className="historyValues"><strong>P={format(r.p)}</strong> <strong>T={format(r.t)}</strong> h={format(r.h)} s={format(r.s, 3)} {r.x !== null ? `x=${format(r.x, 3)}` : ''}</span>
             </div>
             <button className="historyDelete" onClick={(e) => { e.stopPropagation(); deleteRecord(r.id); }} title={lang === 'ko' ? '삭제' : 'Delete'}>✕</button>
           </div>)}
@@ -353,7 +357,7 @@ function SaturationAdvisor({ copy: t, active, quality, tSat, temperatureUnit, li
 
 function SteamTableRow({ field, checked, disabled, value, inputs, lang, onToggle, onSet }: { field: SteamTableField; checked: boolean; disabled: boolean; value: string; inputs: SteamInputs; lang: Lang; onToggle: () => void; onSet: <K extends keyof SteamInputs>(key: K, value: SteamInputs[K]) => void }) {
   const meta = fieldLabels[field];
-  return <div className={`${checked ? 'steamRow checked' : 'steamRow'}${disabled ? ' disabled' : ''}`} onClick={onToggle}><label className="steamCheck"><input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => e.stopPropagation()} readOnly /><span>{meta.symbol}</span></label><div className="steamName"><b>{meta[lang]}</b><small>{meta.checkable ? 'input' : 'calc'}</small></div><div className="steamValue" onClick={(e) => e.stopPropagation()}>{checked ? <SteamFieldInput field={field} inputs={inputs} onSet={onSet} /> : <ValueWithUnit value={value} unit={displayUnit(field, inputs)} />}</div></div>;
+  return <div className={`${checked ? 'steamRow checked' : 'steamRow'}${disabled ? ' disabled' : ''}`} onClick={onToggle}><label className="steamCheck"><input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => e.stopPropagation()} readOnly /><span>{meta.symbol}</span></label><div className="steamName"><b>{meta[lang]}</b><small>{meta.checkable ? 'input' : 'calc'}</small></div><div className="steamValue" onClick={checked ? (e) => e.stopPropagation() : undefined}>{checked ? <SteamFieldInput field={field} inputs={inputs} onSet={onSet} /> : <ValueWithUnit value={value} unit={displayUnit(field, inputs)} />}</div></div>;
 }
 
 function SteamFieldInput({ field, inputs, onSet }: { field: SteamTableField; inputs: SteamInputs; onSet: <K extends keyof SteamInputs>(key: K, value: SteamInputs[K]) => void }) {
