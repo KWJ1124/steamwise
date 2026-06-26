@@ -46,3 +46,27 @@ export function solveColdOutlet(hot: HeatSide, coldFlow: number, coldFlowUnit: M
   if (kgS === 0) return Number.NaN;
   return coldHIn + qAbs / kgS;
 }
+
+export interface HeatEffectivenessInput {
+  hotFlowKgS: number;
+  hotCpKJkgK: number;
+  hotInC: number;
+  hotOutC: number;
+  coldFlowKgS: number;
+  coldCpKJkgK: number;
+  coldInC: number;
+  coldOutC: number;
+}
+
+export function heatEffectiveness(input: HeatEffectivenessInput) {
+  const hotCapacityKWK = input.hotFlowKgS * input.hotCpKJkgK;
+  const coldCapacityKWK = input.coldFlowKgS * input.coldCpKJkgK;
+  const cMinKWK = Math.min(hotCapacityKWK, coldCapacityKWK);
+  const actualHotKW = hotCapacityKWK * (input.hotInC - input.hotOutC);
+  const actualColdKW = coldCapacityKWK * (input.coldOutC - input.coldInC);
+  const actualKW = Math.max(0, Math.min(Math.abs(actualHotKW), Math.abs(actualColdKW)));
+  const maxPossibleKW = Math.max(0, cMinKWK * (input.hotInC - input.coldInC));
+  const effectiveness = maxPossibleKW > 0 ? actualKW / maxPossibleKW : Number.NaN;
+  const heatBalanceGapKW = Math.abs(Math.abs(actualHotKW) - Math.abs(actualColdKW));
+  return { actualKW, maxPossibleKW, effectiveness, heatBalanceGapKW, hotCapacityKWK, coldCapacityKWK };
+}

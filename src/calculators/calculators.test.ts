@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getCheckedSteamFields, pressureToMPa, selectedFieldsToPair, solveSteam, type SteamTableField } from './steam';
 import { calculateVelocity, findPipeSize, getPipeSchedules, getPipeSizes, getPipeStandards } from './pipe';
-import { solveColdOutlet, solveMissingColdFlow } from './heat';
+import { heatEffectiveness, solveColdOutlet, solveMissingColdFlow } from './heat';
 import { convertUnit, normalizeNumericText } from './units';
 
 describe('steam calculator', () => {
@@ -65,11 +65,12 @@ describe('pipe velocity', () => {
     const standards = getPipeStandards();
     expect(standards).toContain('ASME B36.10/B36.19');
     const sizes = getPipeSizes('ASME B36.10/B36.19');
-    expect(sizes).toContain('6');
+    expect(sizes).toEqual(expect.arrayContaining(['6', '24']));
     const schedules = getPipeSchedules('ASME B36.10/B36.19', '6');
-    expect(schedules).toEqual(expect.arrayContaining(['40', '80']));
+    expect(schedules).toEqual(expect.arrayContaining(['10', '40', '80']));
     const row = findPipeSize('ASME B36.10/B36.19', '6', '80');
     expect(row?.idMm).toBeCloseTo(146.3, 1);
+    expect(findPipeSize('JIS G3454/G3455', '200A', 'Sch 40')?.idMm).toBeGreaterThan(190);
   });
 });
 
@@ -79,6 +80,13 @@ describe('heat balance', () => {
     expect(solveColdOutlet(hot, 20, 't/h', 420)).toBeGreaterThan(700);
     expect(solveMissingColdFlow(hot, 420, 900, 't/h')).toBeGreaterThan(40);
   });
+
+  it('calculates heat exchanger effectiveness as actual duty over maximum possible duty', () => {
+    const result = heatEffectiveness({ hotFlowKgS: 5, hotCpKJkgK: 4.2, hotInC: 140, hotOutC: 90, coldFlowKgS: 6, coldCpKJkgK: 4.2, coldInC: 30, coldOutC: 71.6667 });
+    expect(result.actualKW).toBeCloseTo(1050, 1);
+    expect(result.effectiveness).toBeGreaterThan(0.45);
+    expect(result.effectiveness).toBeLessThan(0.5);
+  });
 });
 
 describe('unit helpers', () => {
@@ -87,6 +95,9 @@ describe('unit helpers', () => {
     expect(normalizeNumericText('07')).toBe('7');
     expect(normalizeNumericText('000.5')).toBe('0.5');
     expect(normalizeNumericText('-003')).toBe('-3');
+    expect(normalizeNumericText('1.')).toBe('1.');
+    expect(normalizeNumericText('0.1234')).toBe('0.1234');
+    expect(normalizeNumericText('0001.2300')).toBe('1.2300');
   });
 
   it('converts common engineering units used by the visible unit converter', () => {
