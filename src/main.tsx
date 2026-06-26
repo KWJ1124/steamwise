@@ -28,7 +28,6 @@ import {
   type PipeSizeRow,
   type PipeStandard
 } from './calculators/pipe';
-import { heatEffectiveness, sideDutyKW, solveColdOutlet, solveMissingColdFlow, type MassFlowUnit } from './calculators/heat';
 import { UNIT_GROUPS, convertUnit, normalizeNumericText, type UnitCategory } from './calculators/units';
 import './styles.css';
 
@@ -39,39 +38,35 @@ const tableFields: SteamTableField[] = ['pressure', 'temperature', 'enthalpy', '
 
 type Lang = 'ko' | 'en';
 type Theme = 'light' | 'dark';
-type TabKey = 'steam' | 'pipe' | 'unit' | 'heat';
+type TabKey = 'steam' | 'pipe';
 type RecordItem = { id: string; label: string; p: number; t: number; h: number; s: number; v: number; x: number | null; region: string };
 
 const copy = {
   ko: {
-    tagline: 'Plant engineering calculator',
-    subtitle: '필요한 기능만 한 화면에 집중해서 봅니다. 기본은 Steam Table, 배관·단위환산·열전달은 탭으로 전환하세요.',
-    steam: 'Steam Table', pipe: 'Pipe / Velocity', unit: 'Unit Converter', heat: 'Heat Transfer',
+    tagline: 'IAPWS-IF97 · SteamWise',
+    steam: 'Steam Table', pipe: 'Pipe / Velocity',
     mini: 'Mini', full: 'Full', pin: 'Pin', clear: 'Clear', language: 'English',
-    steamInput: 'Steam Table Input', result: 'Calculated Result', chart: 'T-s Diagram',
-    pipeTitle: 'Pipe Size & Velocity', unitTitle: 'Unit Converter', heatTitle: 'Heat Transfer Check',
-    help: '사용법 / 더보기', trust: '검증/주의사항', table: 'Pipe table',
-    selectedPair: 'Selected input pair', saturated: '포화선 감지', usePx: '입력쌍을 P+x로 전환',
-    pipeHelp: '코드 → DN/NPS → 스케줄 순서로 선택하면 ID가 자동 적용됩니다. 표는 빠른 검토용 subset이며 최종 설계는 최신 공식 표준과 프로젝트 piping class로 확인하세요.',
-    steamHelp: '입력할 상태량 2개를 체크하세요. P+T, P+h, P+s, P+x, T+h, T+s를 지원합니다. 체크하지 않은 값은 IF97 계산값입니다.',
-    unitHelp: '발전/배관에서 자주 쓰는 압력, 온도, 엔탈피, 엔트로피, 유량, 길이 단위를 즉시 환산합니다.',
-    heatHelp: '열수지는 엔탈피 기반 quick check입니다. 효율은 ε = 실제 열량 / 가능한 최대 열량으로 계산합니다. 나중에 LMTD/UA/접근온도까지 확장할 수 있습니다.',
+    steamInput: '입력', chart: 'T-s 선도', history: '기록',
+    pipeTitle: 'Pipe Size & Velocity',
+    help: '사용법 / 더보기', table: '배관표',
+    selectedPair: '입력쌍', saturated: '포화선 감지', usePx: 'P+x로 전환',
+    pipeHelp: '코드 → DN/NPS → 스케줄 순서로 선택. 모든 주요 코드(ASME/JIS/DIN/KS)를 포함한 종합 배관 데이터입니다. 최종 설계는 최신 공식 표준과 프로젝트 piping class로 확인하세요.',
+    steamHelp: '상태량 2개를 체크하세요. P+T, P+h, P+s, P+x, T+h, T+s 지원. 체크 안 한 필드는 IF97 계산값입니다.',
+    unitLabel: '단위 변환',
     disclaimer: '⚠ Engineering reference only. All values are quick-check estimates. Final design requires verification against latest official standards, vendor documentation, and project-specific piping/equipment class. No liability assumed.'
   },
   en: {
-    tagline: 'Plant engineering calculator',
-    subtitle: 'Use one focused tool at a time. Steam Table is the default; switch tabs for pipe, units, or heat transfer.',
-    steam: 'Steam Table', pipe: 'Pipe / Velocity', unit: 'Unit Converter', heat: 'Heat Transfer',
+    tagline: 'IAPWS-IF97 · SteamWise',
+    steam: 'Steam Table', pipe: 'Pipe / Velocity',
     mini: 'Mini', full: 'Full', pin: 'Pin', clear: 'Clear', language: '한국어',
-    steamInput: 'Steam Table Input', result: 'Calculated Result', chart: 'T-s Diagram',
-    pipeTitle: 'Pipe Size & Velocity', unitTitle: 'Unit Converter', heatTitle: 'Heat Transfer Check',
-    help: 'How to use / more', trust: 'Verification / caution', table: 'Pipe table',
-    selectedPair: 'Selected input pair', saturated: 'Saturation detected', usePx: 'Switch input pair to P+x',
-    pipeHelp: 'Select code → DN/NPS → schedule. Pipe ID is applied automatically. This is a quick-reference subset; verify final design against official standards and project piping class.',
+    steamInput: 'Input', chart: 'T-s Diagram', history: 'History',
+    pipeTitle: 'Pipe Size & Velocity',
+    help: 'How to use / more', table: 'Pipe table',
+    selectedPair: 'Pair', saturated: 'Saturation detected', usePx: 'Use P+x',
+    pipeHelp: 'Select code → DN/NPS → schedule. Covers all major codes (ASME/JIS/DIN/KS) with comprehensive size data. Verify final design against official standards and project piping class.',
     steamHelp: 'Check two independent properties. Supported pairs: P+T, P+h, P+s, P+x, T+h, T+s. Unchecked fields are IF97 calculated results.',
-    unitHelp: 'Convert common power-plant and piping units for pressure, temperature, enthalpy, entropy, flow, velocity, and length.',
-    heatHelp: 'Heat balance is an enthalpy-based quick check. Effectiveness ε = actual duty / maximum possible duty. Later we can add LMTD, UA, and approach-temperature bands.',
-    disclaimer: '⚠ Engineering reference only. All values are quick-check estimates. Final design requires verification against latest official standards, vendor documentation, and project-specific piping/equipment class. No liability assumed.',
+    unitLabel: 'Unit converter',
+    disclaimer: '⚠ Engineering reference only. All values are quick-check estimates. Final design requires verification against latest official standards, vendor documentation, and project-specific piping/equipment class. No liability assumed.'
   }
 };
 
@@ -93,13 +88,13 @@ function SteamChart({ records, current, theme }: { records: RecordItem[]; curren
     const pts = [...records.slice(-8), ...(current ? [current] : [])];
     const isDark = theme === 'dark';
     chart.setOption({
-      grid: { left: 45, right: 16, top: 18, bottom: 38 },
+      grid: { left: 40, right: 12, top: 16, bottom: 32 },
       tooltip: { trigger: 'item' },
-      xAxis: { name: 's kJ/kg·K', type: 'value', min: 0, max: 9, nameTextStyle: { color: isDark ? '#8896a9' : '#526174' }, axisLabel: { color: isDark ? '#6b7a8e' : '#667789' }, splitLine: { lineStyle: { color: isDark ? '#2a3649' : '#e7edf3' } } },
-      yAxis: { name: 'T °C', type: 'value', min: 0, max: 650, nameTextStyle: { color: isDark ? '#8896a9' : '#526174' }, axisLabel: { color: isDark ? '#6b7a8e' : '#667789' }, splitLine: { lineStyle: { color: isDark ? '#2a3649' : '#e7edf3' } } },
+      xAxis: { name: 's kJ/kg·K', type: 'value', min: 0, max: 9, nameTextStyle: { color: isDark ? '#8896a9' : '#526174', fontSize: 10 }, axisLabel: { color: isDark ? '#6b7a8e' : '#667789', fontSize: 10 }, splitLine: { lineStyle: { color: isDark ? '#2a3649' : '#e7edf3' } } },
+      yAxis: { name: 'T °C', type: 'value', min: 0, max: 650, nameTextStyle: { color: isDark ? '#8896a9' : '#526174', fontSize: 10 }, axisLabel: { color: isDark ? '#6b7a8e' : '#667789', fontSize: 10 }, splitLine: { lineStyle: { color: isDark ? '#2a3649' : '#e7edf3' } } },
       series: [
-        { name: 'Saturation dome', type: 'line', data: dome, smooth: true, symbol: 'none', lineStyle: { color: isDark ? '#3a7a9a' : '#7aa7c7', width: 2 }, areaStyle: { color: isDark ? 'rgba(58, 122, 154, .12)' : 'rgba(125, 211, 252, .10)' } },
-        { name: 'State', type: 'scatter', symbolSize: 13, data: pts.map((r) => [r.s, r.t, r.label]), itemStyle: { color: isDark ? '#14c5b4' : '#0f766e' } }
+        { name: 'Saturation dome', type: 'line', data: dome, smooth: true, symbol: 'none', lineStyle: { color: isDark ? '#3a7a9a' : '#7aa7c7', width: 1.5 }, areaStyle: { color: isDark ? 'rgba(58, 122, 154, .10)' : 'rgba(125, 211, 252, .08)' } },
+        { name: 'State', type: 'scatter', symbolSize: 11, data: pts.map((r) => [r.s, r.t, r.label]), itemStyle: { color: isDark ? '#14c5b4' : '#0f766e' } }
       ]
     });
     const resize = () => chart.resize();
@@ -117,6 +112,7 @@ function App() {
   const [theme, setTheme] = useState<Theme>(() => (typeof localStorage !== 'undefined' ? (localStorage.getItem('steamwise-theme') as Theme || 'light') : 'light'));
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); localStorage.setItem('steamwise-theme', theme); }, [theme]);
 
+  // Steam Table
   const [checks, setChecks] = useState<SteamFieldChecks>({ pressure: true, temperature: true, enthalpy: false, entropy: false, quality: false, specificVolume: false });
   const checkedFields = getCheckedSteamFields(checks).filter((field) => field !== 'specificVolume');
   const selectedPair = selectedFieldsToPair(checkedFields);
@@ -127,10 +123,17 @@ function App() {
   const current: RecordItem | undefined = state ? { id: 'current', label: `${selectedPair} current`, p: state.pressure, t: tempFromK(state.temperature, '°C'), h: state.enthalpy, s: state.entropy, v: state.specificVolume, x: state.quality, region: regionLabel(state) } : undefined;
   const [records, setRecords] = useState<RecordItem[]>([]);
   function restoreRecord(r: RecordItem) {
-    setInputs({ pair: 'PT', pressure: Math.round(r.p * 1e6) / 1e6, pressureUnit: 'MPa', temperature: r.t, temperatureUnit: '°C', enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
-    setChecks({ pressure: true, temperature: true, enthalpy: false, entropy: false, quality: false, specificVolume: false });
+    if (r.x !== null && r.x >= 0 && r.x <= 1) {
+      setInputs({ pair: 'Px', pressure: Math.round(r.p * 1e6) / 1e6, pressureUnit: 'MPa', temperature: r.t, temperatureUnit: '°C', enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
+      setChecks({ pressure: true, temperature: false, enthalpy: false, entropy: false, quality: true, specificVolume: false });
+    } else {
+      setInputs({ pair: 'PT', pressure: Math.round(r.p * 1e6) / 1e6, pressureUnit: 'MPa', temperature: r.t, temperatureUnit: '°C', enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
+      setChecks({ pressure: true, temperature: true, enthalpy: false, entropy: false, quality: false, specificVolume: false });
+    }
   }
+  function deleteRecord(id: string) { setRecords((prev) => prev.filter((r) => r.id !== id)); }
 
+  // Pipe
   const standards = getPipeStandards();
   const [pipeStandard, setPipeStandard] = useState<PipeStandard>('ASME B36.10/B36.19');
   const pipeSizes = getPipeSizes(pipeStandard);
@@ -149,19 +152,13 @@ function App() {
   const velocity = calculateVelocity(pipeFlow, pipeFlowUnit, effectiveSpecificVolume, resolvedPipeRow.idMm);
   const pipeRowsForStandard = PIPE_SIZES.filter((row) => row.standard === pipeStandard);
 
+  // Unit converter (inline)
   const [unitCategory, setUnitCategory] = useState<UnitCategory>('pressure');
   const unitOptions = UNIT_GROUPS[unitCategory];
   const [unitFrom, setUnitFrom] = useState(unitOptions[0]);
   const [unitTo, setUnitTo] = useState(unitOptions[1]);
   const [unitValue, setUnitValue] = useState(1);
   const converterResult = useMemo(() => convertUnit(unitValue, unitCategory, unitFrom, unitTo), [unitValue, unitCategory, unitFrom, unitTo]);
-
-  const [heat, setHeat] = useState({ hotFlow: 10, hotUnit: 't/h' as MassFlowUnit, hotIn: 3200, hotOut: 900, coldFlow: 20, coldUnit: 't/h' as MassFlowUnit, coldIn: 420, coldOut: 900 });
-  const hotDuty = sideDutyKW({ flow: heat.hotFlow, flowUnit: heat.hotUnit, hIn: heat.hotIn, hOut: heat.hotOut });
-  const coldOutlet = solveColdOutlet({ flow: heat.hotFlow, flowUnit: heat.hotUnit, hIn: heat.hotIn, hOut: heat.hotOut }, heat.coldFlow, heat.coldUnit, heat.coldIn);
-  const coldFlow = solveMissingColdFlow({ flow: heat.hotFlow, flowUnit: heat.hotUnit, hIn: heat.hotIn, hOut: heat.hotOut }, heat.coldIn, heat.coldOut, heat.coldUnit);
-  const [hx, setHx] = useState({ hotFlowKgS: 5, hotCpKJkgK: 4.2, hotInC: 140, hotOutC: 90, coldFlowKgS: 6, coldCpKJkgK: 4.2, coldInC: 30, coldOutC: 71.7 });
-  const hxResult = heatEffectiveness(hx);
 
   function set<K extends keyof SteamInputs>(key: K, value: SteamInputs[K]) { setInputs((prev) => ({ ...prev, [key]: value })); }
   function savePoint() { if (current) setRecords((prev) => [...prev, { ...current, id: crypto.randomUUID(), label: `${selectedPair} · ${new Date().toLocaleTimeString()}` }].slice(-12)); }
@@ -187,22 +184,32 @@ function App() {
       <div className="brandBlock">
         <p className="eyebrow">IAPWS-IF97 · SteamWise</p>
         <h1>SteamWise</h1>
-        <p className="subtitle">{t.subtitle}</p>
+        <p className="subtitle">{t.tagline}</p>
       </div>
       <div className="topActions">
         <button className="tinyButton" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>{t.language}</button>
         <button className="tinyButton themeToggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? '☀️' : '🌙'}</button>
         <button className="tinyButton" onClick={() => setMini(!mini)}>{mini ? t.full : t.mini}</button>
-        <button className="tinyButton" onClick={savePoint} disabled={!state}>{t.pin}</button>
-        <button className="tinyButton" onClick={() => setRecords([])}>{t.clear}</button>
       </div>
     </header>
 
+    {/* Inline Unit Converter — always visible below header */}
+    <div className="inlineUnit">
+      <span className="inlineUnitLabel">{t.unitLabel}</span>
+      <select value={unitCategory} onChange={(e) => { const next = e.target.value as UnitCategory; setUnitCategory(next); setUnitFrom(UNIT_GROUPS[next][0]); setUnitTo(UNIT_GROUPS[next][1] ?? UNIT_GROUPS[next][0]); }}>{Object.keys(UNIT_GROUPS).map((cat) => <option key={cat} value={cat}>{cat}</option>)}</select>
+      <input type="text" inputMode="decimal" value={String(unitValue)} onChange={(e) => { const normalized = normalizeNumericText(e.target.value); const n = Number(normalized); if (Number.isFinite(n)) setUnitValue(n); }} className="unitInlineInput" />
+      <select value={unitFrom} onChange={(e) => setUnitFrom(e.target.value)}>{unitOptions.map((u) => <option key={u}>{u}</option>)}</select>
+      <span className="inlineUnitEquals">=</span>
+      <span className="unitInlineResult">{format(converterResult, 6)}</span>
+      <select value={unitTo} onChange={(e) => setUnitTo(e.target.value)}>{unitOptions.map((u) => <option key={u}>{u}</option>)}</select>
+    </div>
+
     <nav className="toolTabs" aria-label="SteamWise tools">
-      {(['steam', 'pipe', 'unit', 'heat'] as TabKey[]).map((tab) => <button key={tab} className={activeTab === tab ? 'tab active' : 'tab'} onClick={() => setActiveTab(tab)}>{t[tab]}</button>)}
+      {(['steam', 'pipe'] as TabKey[]).map((tab) => <button key={tab} className={activeTab === tab ? 'tab active' : 'tab'} onClick={() => setActiveTab(tab)}>{t[tab]}</button>)}
     </nav>
 
-    {activeTab === 'steam' && <section className="workspace steamWorkspace">
+    {activeTab === 'steam' && <section className="workspace steamWorkspaceV2">
+      {/* Left: Steam Table Input */}
       <section className="panel inputPanel">
         <h2>{t.steamInput}</h2>
         <div className="steamTable">
@@ -215,22 +222,36 @@ function App() {
         <Help title={t.help}>{t.steamHelp}</Help>
       </section>
 
-      <section className="panel resultPanel">
-        <h2>{t.result}</h2>
-        {state && <>
-          <div className={`stateBadge ${regionTone(state)}`}>{regionLabel(state)}</div>
-          <div className="resultCards">
-            <Metric label="P" value={format(pressureFromMPa(state.pressure, inputs.pressureUnit))} unit={inputs.pressureUnit} />
-            <Metric label="T" value={format(tempFromK(state.temperature, inputs.temperatureUnit))} unit={inputs.temperatureUnit} />
-            <Metric label="h" value={format(state.enthalpy)} unit="kJ/kg" />
-            <Metric label="s" value={format(state.entropy)} unit="kJ/kg·K" />
-            <Metric label="v" value={format(state.specificVolume, 5)} unit="m³/kg" />
-            <Metric label="ρ" value={format(state.density)} unit="kg/m³" />
+      {/* Center: T-s Diagram */}
+      <section className="panel chartPanelV2">
+        <div className="chartHeader">
+          <h2>{t.chart}</h2>
+          <div className="chartActions">
+            <button className="tinyButton" onClick={savePoint} disabled={!state}>{t.pin}</button>
+            <button className="tinyButton" onClick={() => setRecords([])} disabled={records.length === 0}>{t.clear}</button>
           </div>
-        </>}
+        </div>
+        {!mini && <SteamChart records={records} current={current} theme={theme} />}
+        {state && !mini && <div className={`stateBadge ${regionTone(state)}`}>{regionLabel(state)}</div>}
       </section>
 
-      {!mini && <section className="panel chartPanel"><h2>{t.chart}</h2><SteamChart records={records} current={current} theme={theme} /><div className="history">{records.map((r) => <button key={r.id} onClick={() => restoreRecord(r)} title="Click to restore">{r.label}<span>{r.region}</span><small>P={format(r.p)} T={format(r.t)} h={format(r.h)}</small></button>)}</div></section>}
+      {/* Right: History */}
+      <section className="panel historyPanel">
+        <h2>{t.history}</h2>
+        {records.length === 0 && <p className="muted">{lang === 'ko' ? '저장된 기록이 없습니다. Pin 버튼으로 상태를 저장하세요.' : 'No saved records. Pin a state to save.'}</p>}
+        <div className="historyList">
+          {records.map((r, i) => <div key={r.id} className="historyItem" onClick={() => restoreRecord(r)}>
+            <span className="historyNum">{i + 1}</span>
+            <div className="historyBody">
+              <span className="historyLabel">{r.label}</span>
+              <span className="historyRegion">{r.region}</span>
+              <span className="historyValues">P={format(r.p)} T={format(r.t)} h={format(r.h)} s={format(r.s, 3)} {r.x !== null ? `x=${format(r.x, 3)}` : ''}</span>
+            </div>
+            <button className="historyDelete" onClick={(e) => { e.stopPropagation(); deleteRecord(r.id); }} title={lang === 'ko' ? '삭제' : 'Delete'}>✕</button>
+          </div>)}
+        </div>
+        {t.disclaimer && <Help title={lang === 'ko' ? '참고사항' : 'Reference'}>{t.disclaimer}</Help>}
+      </section>
     </section>}
 
     {activeTab === 'pipe' && <section className="workspace singleWorkspace">
@@ -253,58 +274,13 @@ function App() {
         {velocity.velocityMS > 0 && velocity.velocityMS < 5 && <div className="warn subtle">Velocity low ({format(velocity.velocityMS)} m/s) — may cause condensate accumulation in steam lines</div>}
         <details className="pipeTableDetails"><summary>{t.table} · {pipeStandard}</summary><PipeTable rows={pipeRowsForStandard} selected={resolvedPipeRow} onPick={(row) => { setPipeStandard(row.standard); setPipeNps(row.nps); setPipeSchedule(row.schedule); }} /></details>
         <Help title={t.help}>{t.pipeHelp}</Help>
-      </section>
-    </section>}
-
-    {activeTab === 'unit' && <section className="workspace singleWorkspace">
-      <section className="panel widePanel">
-        <h2>{t.unitTitle}</h2>
-        <div className="converterGrid">
-          <label>Category<select value={unitCategory} onChange={(e) => { const next = e.target.value as UnitCategory; setUnitCategory(next); setUnitFrom(UNIT_GROUPS[next][0]); setUnitTo(UNIT_GROUPS[next][1] ?? UNIT_GROUPS[next][0]); }}>{Object.keys(UNIT_GROUPS).map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
-          <NumberWithUnit label="From" value={unitValue} onValue={setUnitValue} unit={unitFrom} units={unitOptions} onUnit={setUnitFrom} />
-          <label>To<select value={unitTo} onChange={(e) => setUnitTo(e.target.value)}>{unitOptions.map((unit) => <option key={unit}>{unit}</option>)}</select></label>
-        </div>
-        <div className="converterResult"><span>{format(unitValue)} {unitFrom}</span><strong>= {format(converterResult, 6)} {unitTo}</strong></div>
-        <Help title={t.help}>{t.unitHelp}</Help>
-      </section>
-    </section>}
-
-    {activeTab === 'heat' && <section className="workspace heatWorkspace">
-      <section className="panel">
-        <h2>{t.heatTitle}</h2>
-        <div className="miniFields">
-          <NumberInput label="Hot flow t/h" value={heat.hotFlow} onValue={(v) => setHeat({ ...heat, hotFlow: v })} />
-          <NumberInput label="Hot h in kJ/kg" value={heat.hotIn} onValue={(v) => setHeat({ ...heat, hotIn: v })} />
-          <NumberInput label="Hot h out kJ/kg" value={heat.hotOut} onValue={(v) => setHeat({ ...heat, hotOut: v })} />
-          <NumberInput label="Cold flow t/h" value={heat.coldFlow} onValue={(v) => setHeat({ ...heat, coldFlow: v })} />
-          <NumberInput label="Cold h in kJ/kg" value={heat.coldIn} onValue={(v) => setHeat({ ...heat, coldIn: v })} />
-          <NumberInput label="Cold h out target kJ/kg" value={heat.coldOut} onValue={(v) => setHeat({ ...heat, coldOut: v })} />
-        </div>
-        <div className="resultCards compact"><Metric label="|Q|" value={format(Math.abs(hotDuty))} unit="kW" /><Metric label="Cold h out" value={format(coldOutlet)} unit="kJ/kg" /><Metric label="Req. cold flow" value={format(coldFlow)} unit={heat.coldUnit} /></div>
-        <Help title={t.help}>{t.heatHelp}</Help>
-      </section>
-      <section className="panel">
-        <h2>Effectiveness ε</h2>
-        <div className="miniFields twoCol">
-          <NumberInput label="Hot flow kg/s" value={hx.hotFlowKgS} onValue={(v) => setHx({ ...hx, hotFlowKgS: v })} />
-          <NumberInput label="Hot Cp kJ/kg·K" value={hx.hotCpKJkgK} onValue={(v) => setHx({ ...hx, hotCpKJkgK: v })} />
-          <NumberInput label="Hot in °C" value={hx.hotInC} onValue={(v) => setHx({ ...hx, hotInC: v })} />
-          <NumberInput label="Hot out °C" value={hx.hotOutC} onValue={(v) => setHx({ ...hx, hotOutC: v })} />
-          <NumberInput label="Cold flow kg/s" value={hx.coldFlowKgS} onValue={(v) => setHx({ ...hx, coldFlowKgS: v })} />
-          <NumberInput label="Cold Cp kJ/kg·K" value={hx.coldCpKJkgK} onValue={(v) => setHx({ ...hx, coldCpKJkgK: v })} />
-          <NumberInput label="Cold in °C" value={hx.coldInC} onValue={(v) => setHx({ ...hx, coldInC: v })} />
-          <NumberInput label="Cold out °C" value={hx.coldOutC} onValue={(v) => setHx({ ...hx, coldOutC: v })} />
-        </div>
-        <div className="resultCards compact"><Metric label="Actual Q" value={format(hxResult.actualKW)} unit="kW" /><Metric label="Max Q" value={format(hxResult.maxPossibleKW)} unit="kW" /><Metric label="ε" value={format(hxResult.effectiveness * 100)} unit="%" /></div>
-        {hxResult.effectiveness > 1 && <div className="warn">⚠ ε &gt; 1 — impossible: check flow/direction assumptions</div>}
-        {hx.hotInC < hx.hotOutC && <div className="warn">⚠ Hot outlet &gt; hot inlet — temperature reversal, check inputs</div>}
-        {hxResult.heatBalanceGapKW > hxResult.actualKW * 0.5 && hxResult.actualKW > 0 && <div className="warn">⚠ Balance gap &gt; 50% — hot/cold duty mismatch</div>}
-        <div className="warn subtle">Balance gap: {format(hxResult.heatBalanceGapKW)} kW · early sizing only</div>
+        <Help title={lang === 'ko' ? '참고사항' : 'Reference'}>{t.disclaimer}</Help>
       </section>
     </section>}
   </main>;
 }
 
+// Helper components
 function Help({ title, children }: { title: string; children: React.ReactNode }) { return <details className="helpDetails"><summary>{title}</summary><p>{children}</p></details>; }
 
 function SaturationAdvisor({ copy: t, active, quality, tSat, temperatureUnit, liquid, vapor, onQuality, onUseQualityPair }: { copy: typeof copy.ko; active: boolean; quality: number; tSat?: number; temperatureUnit: TemperatureUnit; liquid?: { enthalpy: number; entropy: number; specificVolume: number }; vapor?: { enthalpy: number; entropy: number; specificVolume: number }; onQuality: (quality: number) => void; onUseQualityPair: () => void }) {
