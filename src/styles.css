@@ -320,6 +320,12 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 .satHeader span { display: inline-flex; margin-bottom: 3px; padding: 3px 7px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 900; }
 [data-theme="dark"] .satHeader span { background: rgba(251, 191, 36, .15); color: #fbbf24; }
 .satHeader small { display: block; color: #9a6a17; font-size: 11px; }
+.satHeader .satTemp strong { font-size: 22px; color: #92400e; letter-spacing: -.03em; }
+[data-theme="dark"] .satHeader .satTemp strong { color: #fbbf24; }
+.satPhases { margin-top: 8px; display: grid; gap: 5px; }
+.satPhase { padding: 6px 8px; border-radius: 10px; background: var(--surface); }
+.satPhaseLabel { font-size: 10px; font-weight: 800; margin-bottom: 3px; }
+.satPhaseValues { font-size: 10px; color: var(--text-subtle); }
 [data-theme="dark"] .satHeader small { color: #d4a017; }
 .qualityPresets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 8px 0; }
 .chip { background: var(--surface); color: #5f430c; border: 1px solid #f1d48b; box-shadow: none; padding: 6px; font-size: 11px; }

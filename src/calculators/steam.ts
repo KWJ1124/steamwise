@@ -34,6 +34,7 @@ export interface SteamInputs {
   enthalpyUnit: EnthalpyUnit;
   entropy: number;
   quality: number;
+  pressureOnly?: boolean;
 }
 
 export type PressureUnit = 'MPa' | 'kPa' | 'bar(a)' | 'bar(g)' | 'kgf/cm²' | 'psi';
@@ -121,8 +122,15 @@ export interface SaturationAssessment {
 export interface SteamResult {
   state?: SteamState;
   saturation: SaturationAssessment;
+  saturationOnly?: SaturationResult;  // computed from pressure-only mode
   error?: string;
   warnings: string[];
+}
+
+export interface SaturationResult {
+  saturationTemperatureK: number;
+  liquid: Pick<SteamState, 'enthalpy' | 'entropy' | 'specificVolume'>;
+  vapor: Pick<SteamState, 'enthalpy' | 'entropy' | 'specificVolume'>;
 }
 
 const SATURATION_TOLERANCE_K = 0.25;
@@ -152,6 +160,24 @@ export function solveSteam(inputs: SteamInputs): SteamResult {
   let saturation: SaturationAssessment = { ambiguous: false, resolution: 'single-phase' };
   try {
     const p = pressureToMPa(inputs.pressure, inputs.pressureUnit);
+
+    // Pressure-only mode: show saturation temperature + liquid/vapor properties
+    if (inputs.pressureOnly) {
+      try {
+        const satTK = saturationTemperature(p);
+        const liquid = solvePx(p, 0);
+        const vapor = solvePx(p, 1);
+        const satOnly: SaturationResult = {
+          saturationTemperatureK: satTK,
+          liquid: { enthalpy: liquid.enthalpy, entropy: liquid.entropy, specificVolume: liquid.specificVolume },
+          vapor: { enthalpy: vapor.enthalpy, entropy: vapor.entropy, specificVolume: vapor.specificVolume }
+        };
+        return { state: solvePx(p, 0.5), saturation: { ambiguous: false, resolution: 'single-phase', saturationTemperatureK: satTK }, saturationOnly: satOnly, warnings };
+      } catch {
+        return { error: 'Unable to compute saturation from pressure.', saturation, warnings };
+      }
+    }
+
     const T = tempToK(inputs.temperature, inputs.temperatureUnit);
     const h = enthalpyToKJkg(inputs.enthalpy, inputs.enthalpyUnit);
     const s = inputs.entropy;

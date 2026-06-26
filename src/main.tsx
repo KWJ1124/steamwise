@@ -13,6 +13,7 @@ import {
   type EnthalpyUnit,
   type PressureUnit,
   type SteamFieldChecks,
+  type SteamInputPair,
   type SteamInputs,
   type SteamTableField,
   type TemperatureUnit
@@ -124,9 +125,10 @@ function App() {
   const [checks, setChecks] = useState<SteamFieldChecks>({ pressure: true, temperature: true, enthalpy: false, entropy: false, quality: false, specificVolume: false });
   const checkedFields = getCheckedSteamFields(checks).filter((field) => field !== 'specificVolume');
   const selectedPair = selectedFieldsToPair(checkedFields);
+  const isPressureOnly = !selectedPair && checkedFields.length === 1 && checkedFields[0] === 'pressure';
   const [inputs, setInputs] = useState<SteamInputs>({ pair: 'PT', pressure: 1, pressureUnit: 'MPa', temperature: 250, temperatureUnit: '°C', enthalpy: 2900, enthalpyUnit: 'kJ/kg', entropy: 6.5, quality: 0.5 });
-  const steamInputs = useMemo(() => ({ ...inputs, pair: selectedPair ?? inputs.pair }), [inputs, selectedPair]);
-  const result = useMemo(() => selectedPair ? solveSteam(steamInputs) : { error: 'Choose two compatible input fields.', saturation: { ambiguous: false as const, resolution: 'single-phase' as const }, warnings: [] }, [steamInputs, selectedPair]);
+  const steamInputs = useMemo(() => ({ ...inputs, pair: (selectedPair ?? 'PT') as SteamInputPair, pressureOnly: isPressureOnly || undefined }), [inputs, selectedPair, isPressureOnly]);
+  const result = useMemo(() => (isPressureOnly || selectedPair) ? solveSteam(steamInputs) : { error: 'Choose two compatible input fields.', saturation: { ambiguous: false as const, resolution: 'single-phase' as const }, warnings: [] }, [steamInputs, selectedPair, isPressureOnly]);
   const state = result.state;
   const current: RecordItem | undefined = state ? { id: 'current', label: `${selectedPair} current`, p: state.pressure, t: tempFromK(state.temperature, '°C'), h: state.enthalpy, s: state.entropy, v: state.specificVolume, x: state.quality, region: regionLabel(state) } : undefined;
   const [records, setRecords] = useState<RecordItem[]>([]);
@@ -251,6 +253,22 @@ function App() {
           {tableFields.map((field) => <SteamTableRow key={field} field={field} lang={lang} checked={checks[field]} disabled={!canCheck(field)} value={showValue(field)} inputs={inputs} onToggle={() => toggleField(field)} onSet={set} />)}
         </div>
         {selectedPair && <div className="pairBadge">{t.selectedPair}: {selectedPair}</div>}
+        {result.saturationOnly && <div className="satCard satOnlyCard">
+          <div className="satHeader">
+            <span>{lang === 'ko' ? '💰 포화온도 (압력 기준)' : '💰 Saturation Temperature (at given pressure)'}</span>
+            <small className="satTemp"><strong>{tempFromK(result.saturationOnly.saturationTemperatureK, inputs.temperatureUnit).toFixed(1)}</strong> {inputs.temperatureUnit}</small>
+          </div>
+          <div className="satPhases">
+            <div className="satPhase liquid">
+              <div className="satPhaseLabel">{lang === 'ko' ? '💧 포화액 (Saturated liquid)' : '💧 Saturated liquid'}</div>
+              <div className="satPhaseValues">h={format(result.saturationOnly.liquid.enthalpy)} kJ/kg · s={format(result.saturationOnly.liquid.entropy, 3)} kJ/kg·K · v={format(result.saturationOnly.liquid.specificVolume, 5)} m³/kg</div>
+            </div>
+            <div className="satPhase vapor">
+              <div className="satPhaseLabel">{lang === 'ko' ? '💨 포화증기 (Saturated vapor)' : '💨 Saturated vapor'}</div>
+              <div className="satPhaseValues">h={format(result.saturationOnly.vapor.enthalpy)} kJ/kg · s={format(result.saturationOnly.vapor.entropy, 3)} kJ/kg·K · v={format(result.saturationOnly.vapor.specificVolume, 5)} m³/kg</div>
+            </div>
+          </div>
+        </div>}
         <SaturationAdvisor copy={t} active={selectedPair === 'PT' && Boolean(result.saturation.ambiguous)} quality={inputs.quality} tSat={result.saturation.saturationTemperatureK ? tempFromK(result.saturation.saturationTemperatureK, inputs.temperatureUnit) : undefined} temperatureUnit={inputs.temperatureUnit} liquid={result.saturation.liquid} vapor={result.saturation.vapor} onQuality={(quality) => set('quality', quality)} onUseQualityPair={() => setChecks({ pressure: true, temperature: false, enthalpy: false, entropy: false, quality: true, specificVolume: false })} />
         {result.error && <div className="error">{result.error}</div>}
         {result.warnings.map((w) => <div className="warn" key={w}>{w}</div>)}
