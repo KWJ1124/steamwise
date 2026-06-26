@@ -231,8 +231,10 @@ function App() {
             <button className="tinyButton" onClick={() => setRecords([])} disabled={records.length === 0}>{t.clear}</button>
           </div>
         </div>
-        {!mini && <SteamChart records={records} current={current} theme={theme} />}
-        {state && !mini && <div className={`stateBadge ${regionTone(state)}`}>{regionLabel(state)}</div>}
+        <div className="chartBody">
+          {!mini && <SteamChart records={records} current={current} theme={theme} />}
+          {state && !mini && <div className={`stateBadge ${regionTone(state)}`}>{regionLabel(state)}</div>}
+        </div>
       </section>
 
       {/* Right: History */}

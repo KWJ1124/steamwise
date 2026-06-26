@@ -189,12 +189,14 @@ body { margin: 0; }
 
 /* Steam Table: Input | Chart | History */
 .steamWorkspaceV2 {
-  display: grid; grid-template-columns: 340px 1fr 260px; gap: 8px; align-items: start; margin-top: 8px;
+  display: grid; grid-template-columns: 340px 1fr 280px; gap: 8px; margin-top: 8px;
   max-width: 1440px; margin-left: auto; margin-right: auto;
 }
+.chartPanelV2 { display: flex; flex-direction: column; }
 .chartHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .chartHeader h2 { margin: 0; }
 .chartActions { display: flex; gap: 4px; }
+.chartBody { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .historyPanel { max-height: calc(100vh - 200px); display: flex; flex-direction: column; }
 .historyPanel h2 { flex-shrink: 0; }
 .historyList { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 4px; padding-right: 2px; }
@@ -249,7 +251,8 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 .stateBadge.dense { background: var(--state-dense-bg); color: var(--state-dense-text); }
 
 /* Chart */
-.chart { height: 260px; width: 100%; }
+.chart { flex: 1; width: 100%; min-height: 320px; height: auto; }
+@media (min-height: 900px) { .chart { min-height: 420px; } }
 
 /* Pipe */
 .pipeCascade, .velocityInputs { display: grid; gap: 8px; margin-top: 8px; }
@@ -300,8 +303,8 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 .mini .historyPanel { display: none; }
 
 @media (max-width: 1180px) {
-  .steamWorkspaceV2 { grid-template-columns: 1fr 1fr; }
-  .historyPanel { grid-column: 1 / -1; max-height: none; }
+  .steamWorkspaceV2 { grid-template-columns: 1fr; }
+  .historyPanel { max-height: none; }
 }
 @media (max-width: 720px) {
   .app { padding: 8px; }
@@ -311,11 +314,10 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
   .toolTabs { padding: 5px; }
   .tab { min-height: 36px; padding: 7px; }
   .panel { padding: 10px; border-radius: 14px; }
-  .steamWorkspaceV2 { grid-template-columns: 1fr; }
   .historyPanel { max-height: none; }
   .inlineUnit { font-size: 11px; padding: 5px 8px; }
   .unitInlineInput { width: 60px; }
   .pipeCascade, .velocityInputs { grid-template-columns: 1fr; }
   .resultCards { grid-template-columns: 1fr; }
-  .chart { height: 200px; }
+  .chart { min-height: 220px; }
 }
