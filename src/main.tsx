@@ -215,7 +215,7 @@ function App() {
         <p className="subtitle">{t.tagline}</p>
       </div>
       <div className="topActions">
-        <button className="tinyButton" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>{t.language}</button>
+        <button className="tinyButton" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>{lang === 'ko' ? 'EN' : 'KO'}</button>
         <button className="tinyButton themeToggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? '☀️' : '🌙'}</button>
         <button className="tinyButton" onClick={() => setMini(!mini)}>{mini ? t.full : t.mini}</button>
       </div>
