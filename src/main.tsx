@@ -264,7 +264,8 @@ function App() {
           <label>DN / NPS<select value={normalizedPipeNps} onChange={(e) => { const nps = e.target.value; const firstSchedule = getPipeSchedules(pipeStandard, nps)[0]; setPipeNps(nps); setPipeSchedule(firstSchedule); }}>{pipeSizes.map((nps) => <option key={nps} value={nps}>{nps} / DN{PIPE_SIZES.find((row) => row.standard === pipeStandard && row.nps === nps)?.dn}</option>)}</select></label>
           <label>Schedule / series<select value={normalizedSchedule} onChange={(e) => setPipeSchedule(e.target.value)}>{pipeSchedules.map((schedule) => <option key={schedule}>{schedule}</option>)}</select></label>
         </div>
-        <div className="pipeSummary">DN{resolvedPipeRow.dn} · {resolvedPipeRow.nps} · {resolvedPipeRow.schedule} · OD {resolvedPipeRow.odMm} mm · ID {resolvedPipeRow.idMm} mm</div>
+        <div className="pipeSummary">DN{resolvedPipeRow.dn} · {resolvedPipeRow.nps} · {resolvedPipeRow.schedule} · OD {resolvedPipeRow.odMm} mm · ID {resolvedPipeRow.idMm} mm · wall {(resolvedPipeRow.odMm - resolvedPipeRow.idMm) / 2} mm</div>
+        <div className="pipeGuide">{lang === 'ko' ? `✅ 선택됨: ${resolvedPipeRow.standard} · ${resolvedPipeRow.nps} / DN${resolvedPipeRow.dn} · ${resolvedPipeRow.schedule} (OD ${resolvedPipeRow.odMm} mm, ID ${resolvedPipeRow.idMm} mm) — 아래 표에서 다른 사이즈를 클릭해 선택하세요.` : `✅ Selected: ${resolvedPipeRow.standard} · ${resolvedPipeRow.nps} / DN${resolvedPipeRow.dn} · ${resolvedPipeRow.schedule} (OD ${resolvedPipeRow.odMm} mm, ID ${resolvedPipeRow.idMm} mm) — click a row in the table below to change.`}</div>
         <div className="velocityInputs">
           <NumberWithUnit label="Mass flow" value={pipeFlow} onValue={setPipeFlow} unit={pipeFlowUnit} units={['kg/h', 't/h', 'kg/s', 'lb/h'] as FlowUnit[]} onUnit={setPipeFlowUnit} />
           <NumberWithFixedUnit label="Specific volume" value={effectiveSpecificVolume} unit="m³/kg" onValue={setVelocitySpecificVolume} disabled={useSteamSv && Boolean(state)} helper={state ? (useSteamSv ? 'from steam result' : 'manual') : 'default editable'} />
@@ -274,7 +275,7 @@ function App() {
         <div className="resultCards compact"><Metric label="Velocity" value={format(velocity.velocityMS)} unit="m/s" /><Metric label="Vol. flow" value={format(velocity.volumetricM3S)} unit="m³/s" /><Metric label="Mass flow" value={format(velocity.kgS)} unit="kg/s" /></div>
         {velocity.velocityMS > 60 && <div className="warn">⚠ Velocity {format(velocity.velocityMS)} m/s exceeds steam guideline (~25–40 m/s) — erosion risk, check pipe spec</div>}
         {velocity.velocityMS > 0 && velocity.velocityMS < 5 && <div className="warn subtle">Velocity low ({format(velocity.velocityMS)} m/s) — may cause condensate accumulation in steam lines</div>}
-        <details className="pipeTableDetails"><summary>{t.table} · {pipeStandard}</summary><PipeTable rows={pipeRowsForStandard} selected={resolvedPipeRow} onPick={(row) => { setPipeStandard(row.standard); setPipeNps(row.nps); setPipeSchedule(row.schedule); }} /></details>
+        <div className="pipeTableSection"><div className="pipeTableLabel">{t.table} · {pipeStandard} · {pipeRowsForStandard.length} rows</div><PipeTable rows={pipeRowsForStandard} selected={resolvedPipeRow} onPick={(row) => { setPipeStandard(row.standard); setPipeNps(row.nps); setPipeSchedule(row.schedule); }} /></div>
         <Help title={t.help}>{t.pipeHelp}</Help>
         <Help title={lang === 'ko' ? '참고사항' : 'Reference'}>{t.disclaimer}</Help>
       </section>
