@@ -37,7 +37,7 @@ export interface SteamInputs {
   pressureOnly?: boolean;
 }
 
-export type PressureUnit = 'MPa' | 'kPa' | 'bar(a)' | 'bar(g)' | 'kgf/cm²' | 'psi';
+export type PressureUnit = 'MPa' | 'kPa' | 'bar(a)' | 'bar(g)' | 'kgf/cm²' | 'psi' | 'mmH₂O' | 'mmHg' | 'torr' | 'inH₂O' | 'inHg' | 'mbar' | 'Pa' | 'atm';
 export type TemperatureUnit = '°C' | 'K' | '°F';
 export type EnthalpyUnit = 'kJ/kg' | 'kcal/kg' | 'BTU/lb';
 
@@ -51,6 +51,15 @@ export function pressureToMPa(value: number, unit: PressureUnit): number {
     case 'bar(g)': return value / 10 + ATM_MPA;
     case 'kgf/cm²': return value * 0.0980665;
     case 'psi': return value * 0.006894757;
+    case 'mmH₂O': return value * 0.00000980665;
+    case 'mmHg': return value * 0.000133322;
+    case 'torr': return value * 0.000133322;
+    case 'inH₂O': return value * 0.000249089;
+    case 'inHg': return value * 0.00338639;
+    case 'mbar': return value * 0.0001;
+    case 'Pa': return value * 0.000001;
+    case 'atm': return value * 0.101325;
+    default: return value;
   }
 }
 
@@ -62,6 +71,15 @@ export function pressureFromMPa(value: number, unit: PressureUnit): number {
     case 'bar(g)': return (value - ATM_MPA) * 10;
     case 'kgf/cm²': return value / 0.0980665;
     case 'psi': return value / 0.006894757;
+    case 'mmH₂O': return value / 0.00000980665;
+    case 'mmHg': return value / 0.000133322;
+    case 'torr': return value / 0.000133322;
+    case 'inH₂O': return value / 0.000249089;
+    case 'inHg': return value / 0.00338639;
+    case 'mbar': return value / 0.0001;
+    case 'Pa': return value / 0.000001;
+    case 'atm': return value / 0.101325;
+    default: return value;
   }
 }
 
@@ -133,7 +151,7 @@ export interface SaturationResult {
   vapor: Pick<SteamState, 'enthalpy' | 'entropy' | 'specificVolume'>;
 }
 
-const SATURATION_TOLERANCE_K = 0.25;
+const SATURATION_TOLERANCE_K = 0.5;
 
 function clampQuality(x: number): number {
   if (!Number.isFinite(x)) return 0.5;
@@ -184,9 +202,9 @@ export function solveSteam(inputs: SteamInputs): SteamResult {
     const x = inputs.quality;
 
     if (inputs.pair.includes('x') && (x < 0 || x > 1)) {
-      return { error: 'Dryness fraction / quality x must be between 0 and 1.', saturation, warnings };
+      return { error: 'ERR:QUALITY_RANGE', saturation, warnings };
     }
-    if (inputs.pressureUnit === 'bar(g)') warnings.push('bar(g) is converted to absolute pressure by adding 1.01325 bar.');
+    if (inputs.pressureUnit === 'bar(g)') warnings.push('WARN:BAR_G_ABSOLUTE');
 
     let state: SteamState;
     switch (inputs.pair) {
@@ -203,7 +221,7 @@ export function solveSteam(inputs: SteamInputs): SteamResult {
             liquid: { enthalpy: liquid.enthalpy, entropy: liquid.entropy, specificVolume: liquid.specificVolume },
             vapor: { enthalpy: vapor.enthalpy, entropy: vapor.entropy, specificVolume: vapor.specificVolume }
           };
-          warnings.push('P+T가 포화선 위에 있습니다. 압력과 온도는 독립 상태량이 아니므로 기본/사용자 건도 x로 2상 상태를 해석합니다.');
+          warnings.push('WARN:SATURATION_AMBIGUOUS');
         } else {
           state = solvePT(p, T);
         }
@@ -216,7 +234,7 @@ export function solveSteam(inputs: SteamInputs): SteamResult {
       case 'TS': state = solveTS(T, s); break;
     }
 
-    if (state.region === Region.Region4) warnings.push('2상/습증기 구간입니다. 건도에 따라 배관 유속·압력강하·밸브/트랩 선정 결과가 달라지므로 최종 설계 전 프로젝트/벤더 기준으로 확인하세요.');
+    if (state.region === Region.Region4) warnings.push('WARN:TWO_PHASE_MIXTURE');
     return { state, saturation, warnings };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error), saturation, warnings };
@@ -224,7 +242,7 @@ export function solveSteam(inputs: SteamInputs): SteamResult {
 }
 
 export function format(value: number | null | undefined, digits = 3): string {
-  if (value === null || value === undefined || Number.isNaN(value)) return '—';
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—';
   if (Math.abs(value) >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: digits });
   return value.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 });
 }

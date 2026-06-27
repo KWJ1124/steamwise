@@ -10,13 +10,13 @@ export function massFlowToKgS(value: number, unit: MassFlowUnit): number {
 export function dutyFromKW(value: number, unit: DutyUnit): number {
   if (unit === 'kW') return value;
   if (unit === 'MW') return value * 1000;
-  return value / 860.42065;
+  return value / (3600 / 4.1868);  // IT calorie: 859.845227...
 }
 
 export function dutyToKW(value: number, unit: DutyUnit): number {
   if (unit === 'kW') return value;
   if (unit === 'MW') return value / 1000;
-  return value * 860.42065;
+  return value * (3600 / 4.1868);  // IT calorie: 859.845227...
 }
 
 export interface HeatSide {

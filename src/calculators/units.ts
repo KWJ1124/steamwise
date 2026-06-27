@@ -1,15 +1,15 @@
 export type UnitCategory = 'pressure' | 'temperature' | 'specificEnthalpy' | 'specificEntropy' | 'specificVolume' | 'density' | 'massFlow' | 'velocity' | 'length';
 
 export const UNIT_GROUPS: Record<UnitCategory, string[]> = {
-  pressure: ['MPa', 'kPa', 'bar(a)', 'bar(g)', 'kgf/cm²', 'psi'],
+  pressure: ['MPa', 'kPa', 'bar(a)', 'bar(g)', 'kgf/cm²', 'psi', 'mmH₂O', 'mmHg', 'torr', 'inH₂O', 'inHg', 'mbar', 'Pa', 'atm'],
   temperature: ['°C', 'K', '°F'],
   specificEnthalpy: ['kJ/kg', 'kcal/kg', 'BTU/lb'],
   specificEntropy: ['kJ/kg·K', 'kcal/kg·K', 'BTU/lb·°F'],
   specificVolume: ['m³/kg', 'ft³/lb'],
   density: ['kg/m³', 'lb/ft³'],
-  massFlow: ['kg/s', 'kg/h', 't/h', 'lb/h'],
-  velocity: ['m/s', 'ft/s'],
-  length: ['mm', 'inch', 'm']
+  massFlow: ['kg/s', 'kg/h', 't/h', 'lb/h', 'lb/s', 'lb/min', 'kg/min'],
+  velocity: ['m/s', 'ft/s', 'km/h'],
+  length: ['mm', 'inch', 'm', 'cm', 'ft']
 };
 
 export function normalizeNumericText(raw: string): string {
@@ -45,6 +45,14 @@ function toBase(value: number, category: UnitCategory, unit: string): number {
       if (unit === 'bar(g)') return (value + 1.01325) / 10;
       if (unit === 'kgf/cm²') return value * 0.0980665;
       if (unit === 'psi') return value * 0.006894757;
+      if (unit === 'mmH₂O') return value * 0.00000980665;
+      if (unit === 'mmHg') return value * 0.000133322;
+      if (unit === 'torr') return value * 0.000133322;
+      if (unit === 'inH₂O') return value * 0.000249089;
+      if (unit === 'inHg') return value * 0.00338639;
+      if (unit === 'mbar') return value * 0.0001;
+      if (unit === 'Pa') return value * 0.000001;
+      if (unit === 'atm') return value * 0.101325;
       break;
     case 'temperature': return temperatureToK(value, unit);
     case 'specificEnthalpy':
@@ -70,15 +78,21 @@ function toBase(value: number, category: UnitCategory, unit: string): number {
       if (unit === 'kg/h') return value / 3600;
       if (unit === 't/h') return value * 1000 / 3600;
       if (unit === 'lb/h') return value * 0.45359237 / 3600;
+      if (unit === 'lb/s') return value * 0.45359237;
+      if (unit === 'lb/min') return value * 0.45359237 / 60;
+      if (unit === 'kg/min') return value / 60;
       break;
     case 'velocity':
       if (unit === 'm/s') return value;
       if (unit === 'ft/s') return value * 0.3048;
+      if (unit === 'km/h') return value / 3.6;
       break;
     case 'length':
       if (unit === 'mm') return value;
       if (unit === 'inch') return value * 25.4;
       if (unit === 'm') return value * 1000;
+      if (unit === 'cm') return value * 10;
+      if (unit === 'ft') return value * 304.8;
       break;
   }
   throw new Error(`Unsupported unit ${unit} for ${category}`);
@@ -93,6 +107,14 @@ function fromBase(value: number, category: UnitCategory, unit: string): number {
       if (unit === 'bar(g)') return value * 10 - 1.01325;
       if (unit === 'kgf/cm²') return value / 0.0980665;
       if (unit === 'psi') return value / 0.006894757;
+      if (unit === 'mmH₂O') return value / 0.00000980665;
+      if (unit === 'mmHg') return value / 0.000133322;
+      if (unit === 'torr') return value / 0.000133322;
+      if (unit === 'inH₂O') return value / 0.000249089;
+      if (unit === 'inHg') return value / 0.00338639;
+      if (unit === 'mbar') return value / 0.0001;
+      if (unit === 'Pa') return value / 0.000001;
+      if (unit === 'atm') return value / 0.101325;
       break;
     case 'temperature': return temperatureFromK(value, unit);
     case 'specificEnthalpy':
@@ -118,15 +140,21 @@ function fromBase(value: number, category: UnitCategory, unit: string): number {
       if (unit === 'kg/h') return value * 3600;
       if (unit === 't/h') return value * 3600 / 1000;
       if (unit === 'lb/h') return value * 3600 / 0.45359237;
+      if (unit === 'lb/s') return value / 0.45359237;
+      if (unit === 'lb/min') return value * 60 / 0.45359237;
+      if (unit === 'kg/min') return value * 60;
       break;
     case 'velocity':
       if (unit === 'm/s') return value;
       if (unit === 'ft/s') return value / 0.3048;
+      if (unit === 'km/h') return value * 3.6;
       break;
     case 'length':
       if (unit === 'mm') return value;
       if (unit === 'inch') return value / 25.4;
       if (unit === 'm') return value / 1000;
+      if (unit === 'cm') return value / 10;
+      if (unit === 'ft') return value / 304.8;
       break;
   }
   throw new Error(`Unsupported unit ${unit} for ${category}`);

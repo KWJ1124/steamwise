@@ -24,7 +24,7 @@ describe('steam calculator', () => {
     expect(result.state?.quality).toBeCloseTo(0.5, 4);
     expect(result.state?.enthalpy).toBeGreaterThan(700);
     expect(result.state?.enthalpy).toBeLessThan(2800);
-    expect(result.warnings.some((warning) => warning.includes('P+T가 포화선'))).toBe(true);
+    expect(result.warnings.some((warning) => warning === 'WARN:SATURATION_AMBIGUOUS')).toBe(true);
   });
 
   it('keeps single-phase P+T as a unique state away from saturation', () => {
@@ -105,5 +105,11 @@ describe('unit helpers', () => {
     expect(convertUnit(100, 'temperature', '°C', 'K')).toBeCloseTo(373.15, 6);
     expect(convertUnit(1, 'massFlow', 't/h', 'kg/s')).toBeCloseTo(0.2777778, 6);
     expect(convertUnit(1, 'specificEnthalpy', 'kcal/kg', 'kJ/kg')).toBeCloseTo(4.1868, 6);
+  });
+
+  it('converts new pressure units: atm to kPa, mmHg to atm, mmH₂O to Pa', () => {
+    expect(convertUnit(1, 'pressure', 'atm', 'kPa')).toBeCloseTo(101.325, 5);
+    expect(convertUnit(760, 'pressure', 'mmHg', 'atm')).toBeCloseTo(1, 5);
+    expect(convertUnit(1, 'pressure', 'mmH₂O', 'Pa')).toBeCloseTo(9.80665, 5);
   });
 });

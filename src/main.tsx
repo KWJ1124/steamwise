@@ -32,7 +32,7 @@ import {
 import { UNIT_GROUPS, convertUnit, normalizeNumericText, type UnitCategory } from './calculators/units';
 import './styles.css';
 
-const pressureUnits: PressureUnit[] = ['MPa', 'kPa', 'bar(a)', 'bar(g)', 'kgf/cm²', 'psi'];
+const pressureUnits: PressureUnit[] = ['MPa', 'kPa', 'bar(a)', 'bar(g)', 'kgf/cm²', 'psi', 'mmH₂O', 'mmHg', 'torr', 'inH₂O', 'inHg', 'mbar', 'Pa', 'atm'];
 const tempUnits: TemperatureUnit[] = ['°C', 'K', '°F'];
 const hUnits: EnthalpyUnit[] = ['kJ/kg', 'kcal/kg', 'BTU/lb'];
 const tableFields: SteamTableField[] = ['pressure', 'temperature', 'enthalpy', 'entropy', 'quality', 'specificVolume'];
@@ -40,9 +40,25 @@ const tableFields: SteamTableField[] = ['pressure', 'temperature', 'enthalpy', '
 type Lang = 'ko' | 'en';
 type Theme = 'light' | 'dark';
 type TabKey = 'steam' | 'pipe';
-type RecordItem = { id: string; label: string; p: number; t: number; h: number; s: number; v: number; x: number | null; region: string };
+type RecordItem = { id: string; label: string; p: number; t: number; h: number; s: number; v: number; x: number | null; region: string; pressureUnit: PressureUnit; temperatureUnit: TemperatureUnit };
 
-const copy = {
+interface CopyContent {
+  tagline: string; steam: string; pipe: string;
+  mini: string; full: string; pin: string; clear: string; language: string;
+  steamInput: string; chart: string; history: string;
+  pipeTitle: string;
+  help: string; table: string;
+  selectedPair: string; saturated: string; usePx: string;
+  pipeHelp: string; steamHelp: string;
+  unitLabel: string;
+  adLabel: string;
+  disclaimer: string;
+  warningBanner: string;
+  warningMap: Record<string, string>;
+  errorMap: Record<string, string>;
+}
+
+const copy: Record<Lang, CopyContent> = {
   ko: {
     tagline: 'IAPWS-IF97 · SteamWise',
     steam: 'Steam Table', pipe: 'Pipe / Velocity',
@@ -56,7 +72,15 @@ const copy = {
     unitLabel: '단위 변환',
     adLabel: '광고',
     disclaimer: '⚠ Engineering reference only. All values are quick-check estimates. Final design requires verification against latest official standards, vendor documentation, and project-specific piping/equipment class. No liability assumed.',
-    warningBanner: '⚠️ 경고: 이 도구는 엔지니어링 참고용으로만 제공됩니다. 모든 계산 결과는 설계 전 최신 공식 표준, 벤더 문서, 프로젝트별 piping/equipment class로 반드시 재확인하세요. 본 사이트는 계산 결과로 인한 모든 법적 책임을 지지 않습니다.'
+    warningBanner: '⚠️ 경고: 이 도구는 엔지니어링 참고용으로만 제공됩니다. 모든 계산 결과는 설계 전 최신 공식 표준, 벤더 문서, 프로젝트별 piping/equipment class로 반드시 재확인하세요. 본 사이트는 계산 결과로 인한 모든 법적 책임을 지지 않습니다.',
+    warningMap: {
+      'WARN:BAR_G_ABSOLUTE': 'bar(g)는 1.01325 bar를 더해 절대압으로 변환됩니다.',
+      'WARN:SATURATION_AMBIGUOUS': 'P+T가 포화선 위에 있습니다. 압력과 온도는 독립 상태량이 아니므로 기본/사용자 건도 x로 2상 상태를 해석합니다.',
+      'WARN:TWO_PHASE_MIXTURE': '2상/습증기 구간입니다. 건도에 따라 배관 유속·압력강하·밸브/트랩 선정 결과가 달라지므로 최종 설계 전 프로젝트/벤더 기준으로 확인하세요.'
+    },
+    errorMap: {
+      'ERR:QUALITY_RANGE': '건도/quality x는 0과 1 사이여야 합니다.'
+    }
   },
   en: {
     tagline: 'IAPWS-IF97 · SteamWise',
@@ -71,7 +95,15 @@ const copy = {
     unitLabel: 'Unit converter',
     adLabel: 'Advertisement',
     disclaimer: '⚠ Engineering reference only. All values are quick-check estimates. Final design requires verification against latest official standards, vendor documentation, and project-specific piping/equipment class. No liability assumed.',
-    warningBanner: '⚠️ WARNING: This tool is for engineering reference only. All calculated values must be verified against latest official standards, vendor documentation, and project-specific piping/equipment class before final design. This site assumes no liability for any consequences resulting from the use of these calculations.'
+    warningBanner: '⚠️ WARNING: This tool is for engineering reference only. All calculated values must be verified against latest official standards, vendor documentation, and project-specific piping/equipment class before final design. This site assumes no liability for any consequences resulting from the use of these calculations.',
+    warningMap: {
+      'WARN:BAR_G_ABSOLUTE': 'bar(g) is converted to absolute pressure by adding 1.01325 bar.',
+      'WARN:SATURATION_AMBIGUOUS': 'P+T lies on the saturation line. Pressure and temperature are not independent — the two-phase state is resolved using default/user quality x.',
+      'WARN:TWO_PHASE_MIXTURE': 'Two-phase / wet steam region. Pipe velocity, pressure drop, and valve/trap sizing depend on quality — verify against project/vendor criteria before final design.'
+    },
+    errorMap: {
+      'ERR:QUALITY_RANGE': 'Dryness fraction / quality x must be between 0 and 1.'
+    }
   }
 };
 
@@ -130,14 +162,16 @@ function App() {
   const steamInputs = useMemo(() => ({ ...inputs, pair: (selectedPair ?? 'PT') as SteamInputPair, pressureOnly: isPressureOnly || undefined }), [inputs, selectedPair, isPressureOnly]);
   const result = useMemo(() => (isPressureOnly || selectedPair) ? solveSteam(steamInputs) : { error: 'Choose two compatible input fields.', saturation: { ambiguous: false as const, resolution: 'single-phase' as const }, warnings: [] }, [steamInputs, selectedPair, isPressureOnly]);
   const state = result.state;
-  const current: RecordItem | undefined = state ? { id: 'current', label: `${selectedPair} current`, p: state.pressure, t: tempFromK(state.temperature, '°C'), h: state.enthalpy, s: state.entropy, v: state.specificVolume, x: state.quality, region: regionLabel(state) } : undefined;
+  const current: RecordItem | undefined = state ? { id: 'current', label: `${selectedPair} current`, p: state.pressure, t: tempFromK(state.temperature, inputs.temperatureUnit), h: state.enthalpy, s: state.entropy, v: state.specificVolume, x: state.quality, region: regionLabel(state), pressureUnit: inputs.pressureUnit, temperatureUnit: inputs.temperatureUnit } : undefined;
   const [records, setRecords] = useState<RecordItem[]>([]);
   function restoreRecord(r: RecordItem) {
+    const restoredPU = 'pressureUnit' in r ? r.pressureUnit : 'MPa' as PressureUnit;
+    const restoredTU = 'temperatureUnit' in r ? r.temperatureUnit : '°C' as TemperatureUnit;
     if (r.x !== null && r.x >= 0 && r.x <= 1) {
-      setInputs({ pair: 'Px', pressure: Math.round(r.p * 1e6) / 1e6, pressureUnit: 'MPa', temperature: r.t, temperatureUnit: '°C', enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
+      setInputs({ pair: 'Px', pressure: Math.round(r.p * 1e6) / 1e6, pressureUnit: restoredPU, temperature: r.t, temperatureUnit: restoredTU, enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
       setChecks({ pressure: true, temperature: false, enthalpy: false, entropy: false, quality: true, specificVolume: false });
     } else {
-      setInputs({ pair: 'PT', pressure: Math.round(r.p * 1e6) / 1e6, pressureUnit: 'MPa', temperature: r.t, temperatureUnit: '°C', enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
+      setInputs({ pair: 'PT', pressure: Math.round(r.p * 1e6) / 1e6, pressureUnit: restoredPU, temperature: r.t, temperatureUnit: restoredTU, enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
       setChecks({ pressure: true, temperature: true, enthalpy: false, entropy: false, quality: false, specificVolume: false });
     }
   }
@@ -233,7 +267,16 @@ function App() {
     {/* Inline Unit Converter — always visible below header */}
     <div className="inlineUnit">
       <span className="inlineUnitLabel">{t.unitLabel}</span>
-      <select value={unitCategory} onChange={(e) => { const next = e.target.value as UnitCategory; setUnitCategory(next); setUnitFrom(UNIT_GROUPS[next][0]); setUnitTo(UNIT_GROUPS[next][1] ?? UNIT_GROUPS[next][0]); }}>{Object.keys(UNIT_GROUPS).map((cat) => <option key={cat} value={cat}>{cat}</option>)}</select>
+      <select value={unitCategory} onChange={(e) => {
+          const next = e.target.value as UnitCategory;
+          const nextOptions = UNIT_GROUPS[next];
+          // Keep from/to if they exist in the new category, else default
+          const from = nextOptions.includes(unitFrom) ? unitFrom : nextOptions[0];
+          const to = nextOptions.includes(unitTo) ? unitTo : (nextOptions[1] ?? nextOptions[0]);
+          setUnitCategory(next);
+          setUnitFrom(from);
+          setUnitTo(to);
+        }}>{Object.keys(UNIT_GROUPS).map((cat) => <option key={cat} value={cat}>{cat}</option>)}</select>
       <input type="text" inputMode="decimal" value={String(unitValue)} onChange={(e) => { const normalized = normalizeNumericText(e.target.value); const n = Number(normalized); if (Number.isFinite(n)) setUnitValue(n); }} className="unitInlineInput" />
       <select value={unitFrom} onChange={(e) => setUnitFrom(e.target.value)}>{unitOptions.map((u) => <option key={u}>{u}</option>)}</select>
       <span className="inlineUnitEquals">=</span>
@@ -269,9 +312,9 @@ function App() {
             </div>
           </div>
         </div>}
-        <SaturationAdvisor copy={t} active={selectedPair === 'PT' && Boolean(result.saturation.ambiguous)} quality={inputs.quality} tSat={result.saturation.saturationTemperatureK ? tempFromK(result.saturation.saturationTemperatureK, inputs.temperatureUnit) : undefined} temperatureUnit={inputs.temperatureUnit} liquid={result.saturation.liquid} vapor={result.saturation.vapor} onQuality={(quality) => set('quality', quality)} onUseQualityPair={() => setChecks({ pressure: true, temperature: false, enthalpy: false, entropy: false, quality: true, specificVolume: false })} />
-        {result.error && <div className="error">{result.error}</div>}
-        {result.warnings.map((w) => <div className="warn" key={w}>{w}</div>)}
+        <SaturationAdvisor copy={t} active={selectedPair === 'PT' && Boolean(result.saturation.ambiguous) || selectedPair === 'Px'} isPxMode={selectedPair === 'Px'} quality={inputs.quality} tSat={result.saturation.saturationTemperatureK ? tempFromK(result.saturation.saturationTemperatureK, inputs.temperatureUnit) : undefined} temperatureUnit={inputs.temperatureUnit} liquid={result.saturation.liquid} vapor={result.saturation.vapor} onQuality={(quality) => set('quality', quality)} onUseQualityPair={() => setChecks({ pressure: true, temperature: false, enthalpy: false, entropy: false, quality: true, specificVolume: false })} />
+        {result.error && <div className="error">{t.errorMap?.[result.error] ?? result.error}</div>}
+        {result.warnings.map((w) => <div className="warn" key={w}>{t.warningMap?.[w] ?? w}</div>)}
         <Help title={t.help}>{t.steamHelp}</Help>
       </section>
 
@@ -300,7 +343,7 @@ function App() {
             <div className="historyBody">
               <span className="historyLabel">{r.label}</span>
               <span className="historyRegion">{r.region}</span>
-              <span className="historyValues"><strong>P={format(r.p)}</strong> <strong>T={format(r.t)}</strong> h={format(r.h)} s={format(r.s, 3)} {r.x !== null ? `x=${format(r.x, 3)}` : ''}</span>
+              <span className="historyValues"><strong>P={format(r.p)} {r.pressureUnit || 'MPa'}</strong> <strong>T={format(r.t)} {r.temperatureUnit || '°C'}</strong> h={format(r.h)} s={format(r.s, 3)} {r.x !== null ? `x=${format(r.x, 3)}` : ''}</span>
             </div>
             <button className="historyDelete" onClick={(e) => { e.stopPropagation(); deleteRecord(r.id); }} title={lang === 'ko' ? '삭제' : 'Delete'}>✕</button>
           </div>)}
@@ -367,9 +410,12 @@ function App() {
 // Helper components
 function Help({ title, children }: { title: string; children: React.ReactNode }) { return <details className="helpDetails"><summary>{title}</summary><p>{children}</p></details>; }
 
-function SaturationAdvisor({ copy: t, active, quality, tSat, temperatureUnit, liquid, vapor, onQuality, onUseQualityPair }: { copy: typeof copy.ko; active: boolean; quality: number; tSat?: number; temperatureUnit: TemperatureUnit; liquid?: { enthalpy: number; entropy: number; specificVolume: number }; vapor?: { enthalpy: number; entropy: number; specificVolume: number }; onQuality: (quality: number) => void; onUseQualityPair: () => void }) {
+function SaturationAdvisor({ copy: t, active, isPxMode = false, quality, tSat, temperatureUnit, liquid, vapor, onQuality, onUseQualityPair }: { copy: typeof copy.ko; active: boolean; isPxMode?: boolean; quality: number; tSat?: number; temperatureUnit: TemperatureUnit; liquid?: { enthalpy: number; entropy: number; specificVolume: number }; vapor?: { enthalpy: number; entropy: number; specificVolume: number }; onQuality: (quality: number) => void; onUseQualityPair: () => void }) {
   if (!active) return null;
   const presets = [{ label: 'x=0', value: 0 }, { label: 'x=0.5', value: 0.5 }, { label: 'x=1', value: 1 }];
+  if (isPxMode) {
+    return <div className="satCard"><div className="qualityPresets">{presets.map((preset) => <button type="button" className={Math.abs(quality - preset.value) < 0.0001 ? 'chip active' : 'chip'} key={preset.value} onClick={() => onQuality(preset.value)}>{preset.label}</button>)}</div><label className="qualitySlider">x<input type="range" min="0" max="1" step="0.01" value={quality} onChange={(e) => onQuality(Number(e.target.value))} /><output>{format(quality, 2)}</output></label>{liquid && vapor && <div className="satRange"><b>h {format(liquid.enthalpy)} ~ {format(vapor.enthalpy)} kJ/kg</b><b>s {format(liquid.entropy)} ~ {format(vapor.entropy)} kJ/kg·K</b></div>}</div>;
+  }
   return <div className="satCard"><div className="satHeader"><span>{t.saturated}</span>{tSat !== undefined && <small>Tsat ≈ {format(tSat)} {temperatureUnit}</small>}</div><div className="qualityPresets">{presets.map((preset) => <button type="button" className={Math.abs(quality - preset.value) < 0.0001 ? 'chip active' : 'chip'} key={preset.value} onClick={() => onQuality(preset.value)}>{preset.label}</button>)}</div><label className="qualitySlider">x<input type="range" min="0" max="1" step="0.01" value={quality} onChange={(e) => onQuality(Number(e.target.value))} /><output>{format(quality, 2)}</output></label>{liquid && vapor && <div className="satRange"><b>h {format(liquid.enthalpy)} ~ {format(vapor.enthalpy)} kJ/kg</b><b>s {format(liquid.entropy)} ~ {format(vapor.entropy)} kJ/kg·K</b></div>}<button type="button" className="secondaryButton" onClick={onUseQualityPair}>{t.usePx}</button></div>;
 }
 
@@ -383,7 +429,13 @@ function SteamFieldInput({ field, inputs, onSet }: { field: SteamTableField; inp
   if (field === 'temperature') return <NumberWithUnit label="" value={inputs.temperature} onValue={(v) => onSet('temperature', v)} unit={inputs.temperatureUnit} units={tempUnits} onUnit={(u) => onSet('temperatureUnit', u)} />;
   if (field === 'enthalpy') return <NumberWithUnit label="" value={inputs.enthalpy} onValue={(v) => onSet('enthalpy', v)} unit={inputs.enthalpyUnit} units={hUnits} onUnit={(u) => onSet('enthalpyUnit', u)} />;
   if (field === 'entropy') return <NumberWithFixedUnit label="" value={inputs.entropy} unit="kJ/kg·K" onValue={(v) => onSet('entropy', v)} />;
-  if (field === 'quality') return <NumberWithFixedUnit label="" value={inputs.quality} unit="x" onValue={(v) => onSet('quality', v)} />;
+  if (field === 'quality') return (
+    <div className="qualityInlineEditor">
+      <input type="range" min="0" max="1" step="0.01" value={inputs.quality}
+        onChange={(e) => onSet('quality', Number(e.target.value))} />
+      <span className="qualityInlineValue">{inputs.quality.toFixed(2)}</span>
+    </div>
+  );
   return <output>—</output>;
 }
 
