@@ -11,6 +11,28 @@ export interface PipeSizeRow {
   note?: string;
 }
 
+export interface PipePressureDropInput {
+  massFlow: number;
+  flowUnit: FlowUnit;
+  specificVolume: number;
+  pipeIdMm: number;
+  lengthM: number;
+  densityKgM3?: number;
+  viscosityPaS?: number;
+  roughnessMm?: number;
+}
+
+export type FlowRegime = 'laminar' | 'transitional' | 'turbulent';
+
+export interface PipePressureDropResult {
+  reynoldsNumber: number;
+  flowRegime: FlowRegime;
+  darcyFrictionFactor: number;
+  pressureDropPa: number;
+  pressureDropPerMeterPa: number;
+  velocityMS: number;
+}
+
 // Comprehensive pipe size reference covering ASME B36.10/B36.19 (NPS 1/2 – 36),
 // JIS G3454/G3456 (10A – 600A), and DIN/EN ISO (DN10 – DN1000).
 // IDs are calculated from standard wall thicknesses per ASME B36.10M-2004,
@@ -551,4 +573,27 @@ export function calculateVelocity(massFlow: number, flowUnit: FlowUnit, specific
   const areaM2 = Math.PI * diameterM * diameterM / 4;
   const velocityMS = volumetricM3S / areaM2;
   return { kgS, volumetricM3S, areaM2, velocityMS };
+}
+
+function frictionFactorFromRe(Re: number, relativeRoughness: number): number {
+  if (Re <= 0) return 0;
+  if (Re < 2300) return 64 / Re;
+  if (Re < 4000) return 0.3164 / Math.pow(Re, 0.25);
+  const term = relativeRoughness / 3.7 + 5.74 / Math.pow(Re, 0.9);
+  return 0.25 / Math.pow(Math.log10(term), 2);
+}
+
+export function calculatePipePressureDrop(input: PipePressureDropInput): PipePressureDropResult {
+  const { velocityMS, kgS } = calculateVelocity(input.massFlow, input.flowUnit, input.specificVolume, input.pipeIdMm);
+  const diameterM = input.pipeIdMm / 1000;
+  const density = input.densityKgM3 ?? (input.specificVolume > 0 ? 1 / input.specificVolume : 0);
+  const viscosity = input.viscosityPaS ?? 0.00002;
+  const roughnessM = (input.roughnessMm ?? 0.045) / 1000;
+  const reynoldsNumber = density > 0 && viscosity > 0 ? density * velocityMS * diameterM / viscosity : 0;
+  const flowRegime: FlowRegime = reynoldsNumber < 2300 ? 'laminar' : reynoldsNumber < 4000 ? 'transitional' : 'turbulent';
+  const relativeRoughness = diameterM > 0 ? roughnessM / diameterM : 0;
+  const darcyFrictionFactor = frictionFactorFromRe(reynoldsNumber, relativeRoughness);
+  const pressureDropPerMeterPa = diameterM > 0 && density > 0 ? darcyFrictionFactor * (density * velocityMS * velocityMS / 2) / diameterM : 0;
+  const pressureDropPa = pressureDropPerMeterPa * Math.max(0, input.lengthM);
+  return { reynoldsNumber, flowRegime, darcyFrictionFactor, pressureDropPa, pressureDropPerMeterPa, velocityMS };
 }

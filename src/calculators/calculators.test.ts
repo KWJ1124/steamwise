@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { getCheckedSteamFields, pressureToMPa, selectedFieldsToPair, solveSteam, type SteamTableField } from './steam';
-import { calculateVelocity, findPipeSize, getPipeSchedules, getPipeSizes, getPipeStandards } from './pipe';
+import { getCheckedSteamFields, pressureToMPa, selectedFieldsToPair, solveSteam, type SteamTableField, getDegreeOfSuperheatC } from './steam';
+import { calculatePipePressureDrop, calculateVelocity, findPipeSize, getPipeSchedules, getPipeSizes, getPipeStandards } from './pipe';
 import { heatEffectiveness, solveColdOutlet, solveMissingColdFlow } from './heat';
-import { convertUnit, normalizeNumericText } from './units';
+import { convertUnit, normalizeNumericText, parseNumericInput } from './units';
 
 describe('steam calculator', () => {
+  it('calculates degree of superheat when state is superheated and saturation reference exists', () => {
+    expect(getDegreeOfSuperheatC({ stateTemperatureC: 250, saturationTemperatureC: 179.885 })).toBeCloseTo(70.115, 3);
+    expect(getDegreeOfSuperheatC({ stateTemperatureC: 250, saturationTemperatureC: undefined })).toBeUndefined();
+    expect(getDegreeOfSuperheatC({ stateTemperatureC: 170, saturationTemperatureC: 179.885 })).toBeUndefined();
+  });
+
   it('solves near atmospheric saturated vapor by P+x', () => {
     const result = solveSteam({ pair: 'Px', pressure: 0.1, pressureUnit: 'MPa', temperature: 100, temperatureUnit: '°C', enthalpy: 0, enthalpyUnit: 'kJ/kg', entropy: 0, quality: 1 });
     expect(result.error).toBeUndefined();
@@ -61,6 +67,25 @@ describe('pipe velocity', () => {
     expect(result.velocityMS).toBeGreaterThan(0);
   });
 
+  it('estimates pipe pressure drop with Reynolds, regime, friction factor, and length-based loss', () => {
+    const result = calculatePipePressureDrop({
+      massFlow: 10,
+      flowUnit: 't/h',
+      specificVolume: 0.24,
+      pipeIdMm: 154.1,
+      lengthM: 100,
+      densityKgM3: 4.2,
+      viscosityPaS: 0.000012,
+      roughnessMm: 0.045
+    });
+
+    expect(result.reynoldsNumber).toBeGreaterThan(10000);
+    expect(result.flowRegime).toBe('turbulent');
+    expect(result.darcyFrictionFactor).toBeGreaterThan(0);
+    expect(result.pressureDropPa).toBeGreaterThan(0);
+    expect(result.pressureDropPerMeterPa).toBeGreaterThan(0);
+  });
+
   it('supports stepped pipe selection by code, size, then schedule', () => {
     const standards = getPipeStandards();
     expect(standards).toContain('ASME B36.10/B36.19');
@@ -98,6 +123,12 @@ describe('unit helpers', () => {
     expect(normalizeNumericText('1.')).toBe('1.');
     expect(normalizeNumericText('0.1234')).toBe('0.1234');
     expect(normalizeNumericText('0001.2300')).toBe('1.2300');
+  });
+
+  it('treats cleared numeric input as an in-progress edit instead of zero', () => {
+    expect(parseNumericInput('')).toEqual({ text: '', value: undefined });
+    expect(parseNumericInput(' - ')).toEqual({ text: '-', value: undefined });
+    expect(parseNumericInput('.')).toEqual({ text: '.', value: undefined });
   });
 
   it('converts common engineering units used by the visible unit converter', () => {

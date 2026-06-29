@@ -24,6 +24,14 @@ export function normalizeNumericText(raw: string): string {
   return `${sign}${normalizedInteger}`;
 }
 
+export function parseNumericInput(raw: string): { text: string; value: number | undefined } {
+  const normalized = normalizeNumericText(raw);
+  if (normalized === '' || normalized === '-' || normalized === '.' || normalized === '-.') return { text: normalized, value: undefined };
+  const next = Number(normalized);
+  return { text: normalized, value: Number.isFinite(next) ? next : undefined };
+}
+
+
 function temperatureToK(value: number, unit: string): number {
   if (unit === 'K') return value;
   if (unit === '°F') return (value - 32) * 5 / 9 + 273.15;

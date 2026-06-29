@@ -127,6 +127,12 @@ export function regionTone(state: SteamState): string {
   return 'dense';
 }
 
+export function getDegreeOfSuperheatC({ stateTemperatureC, saturationTemperatureC }: { stateTemperatureC: number; saturationTemperatureC?: number }): number | undefined {
+  if (saturationTemperatureC === undefined) return undefined;
+  const delta = stateTemperatureC - saturationTemperatureC;
+  return delta > 0 ? delta : undefined;
+}
+
 export interface SaturationAssessment {
   ambiguous: boolean;
   resolution: 'quality' | 'single-phase';

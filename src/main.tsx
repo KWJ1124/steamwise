@@ -10,6 +10,7 @@ import {
   selectedFieldsToPair,
   solveSteam,
   tempFromK,
+  getDegreeOfSuperheatC,
   type EnthalpyUnit,
   type PressureUnit,
   type SteamFieldChecks,
@@ -20,6 +21,7 @@ import {
 } from './calculators/steam';
 import {
   PIPE_SIZES,
+  calculatePipePressureDrop,
   calculateVelocity,
   findPipeSize,
   getPipeSchedules,
@@ -29,7 +31,7 @@ import {
   type PipeSizeRow,
   type PipeStandard
 } from './calculators/pipe';
-import { UNIT_GROUPS, convertUnit, normalizeNumericText, type UnitCategory } from './calculators/units';
+import { UNIT_GROUPS, convertUnit, normalizeNumericText, parseNumericInput, type UnitCategory } from './calculators/units';
 import './styles.css';
 
 const pressureUnits: PressureUnit[] = ['MPa', 'kPa', 'bar(a)', 'bar(g)', 'kgf/cm²', 'psi', 'mmH₂O', 'mmHg', 'torr', 'inH₂O', 'inHg', 'mbar', 'Pa', 'atm'];
@@ -40,7 +42,7 @@ const tableFields: SteamTableField[] = ['pressure', 'temperature', 'enthalpy', '
 type Lang = 'ko' | 'en';
 type Theme = 'light' | 'dark';
 type TabKey = 'steam' | 'pipe';
-type RecordItem = { id: string; label: string; p: number; t: number; h: number; s: number; v: number; x: number | null; region: string; pressureUnit: PressureUnit; temperatureUnit: TemperatureUnit };
+type RecordItem = { id: string; label: string; p: number; t: number; h: number; s: number; v: number; x: number | null; region: string; pressureUnit: PressureUnit; temperatureUnit: TemperatureUnit; pressureStoredInUnit?: boolean };
 
 interface CopyContent {
   tagline: string; steam: string; pipe: string;
@@ -162,16 +164,17 @@ function App() {
   const steamInputs = useMemo(() => ({ ...inputs, pair: (selectedPair ?? 'PT') as SteamInputPair, pressureOnly: isPressureOnly || undefined }), [inputs, selectedPair, isPressureOnly]);
   const result = useMemo(() => (isPressureOnly || selectedPair) ? solveSteam(steamInputs) : { error: 'Choose two compatible input fields.', saturation: { ambiguous: false as const, resolution: 'single-phase' as const }, warnings: [] }, [steamInputs, selectedPair, isPressureOnly]);
   const state = result.state;
-  const current: RecordItem | undefined = state ? { id: 'current', label: `${selectedPair} current`, p: state.pressure, t: tempFromK(state.temperature, inputs.temperatureUnit), h: state.enthalpy, s: state.entropy, v: state.specificVolume, x: state.quality, region: regionLabel(state), pressureUnit: inputs.pressureUnit, temperatureUnit: inputs.temperatureUnit } : undefined;
+  const current: RecordItem | undefined = state ? { id: 'current', label: `${selectedPair} current`, p: pressureFromMPa(state.pressure, inputs.pressureUnit), t: tempFromK(state.temperature, inputs.temperatureUnit), h: state.enthalpy, s: state.entropy, v: state.specificVolume, x: state.quality, region: regionLabel(state), pressureUnit: inputs.pressureUnit, temperatureUnit: inputs.temperatureUnit, pressureStoredInUnit: true } : undefined;
   const [records, setRecords] = useState<RecordItem[]>([]);
   function restoreRecord(r: RecordItem) {
     const restoredPU = 'pressureUnit' in r ? r.pressureUnit : 'MPa' as PressureUnit;
     const restoredTU = 'temperatureUnit' in r ? r.temperatureUnit : '°C' as TemperatureUnit;
+    const restoredPressure = r.pressureStoredInUnit ? r.p : pressureFromMPa(r.p, restoredPU);
     if (r.x !== null && r.x >= 0 && r.x <= 1) {
-      setInputs({ pair: 'Px', pressure: Math.round(r.p * 1e6) / 1e6, pressureUnit: restoredPU, temperature: r.t, temperatureUnit: restoredTU, enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
+      setInputs({ pair: 'Px', pressure: restoredPressure, pressureUnit: restoredPU, temperature: r.t, temperatureUnit: restoredTU, enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
       setChecks({ pressure: true, temperature: false, enthalpy: false, entropy: false, quality: true, specificVolume: false });
     } else {
-      setInputs({ pair: 'PT', pressure: Math.round(r.p * 1e6) / 1e6, pressureUnit: restoredPU, temperature: r.t, temperatureUnit: restoredTU, enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
+      setInputs({ pair: 'PT', pressure: restoredPressure, pressureUnit: restoredPU, temperature: r.t, temperatureUnit: restoredTU, enthalpy: Math.round(r.h), enthalpyUnit: 'kJ/kg', entropy: r.s, quality: r.x ?? 0.5 });
       setChecks({ pressure: true, temperature: true, enthalpy: false, entropy: false, quality: false, specificVolume: false });
     }
   }
@@ -190,10 +193,14 @@ function App() {
   const resolvedPipeRow: PipeSizeRow = pipeRow ?? findPipeSize('ASME B36.10/B36.19', '6', '40')!;
   const [pipeFlow, setPipeFlow] = useState(10);
   const [pipeFlowUnit, setPipeFlowUnit] = useState<FlowUnit>('t/h');
+  const [pipeLengthM, setPipeLengthM] = useState(100);
+  const [pipeViscosity, setPipeViscosity] = useState(0.00002);
+  const [pipeRoughnessMm, setPipeRoughnessMm] = useState(0.045);
   const [velocitySpecificVolume, setVelocitySpecificVolume] = useState(0.24);
   const [useSteamSv, setUseSteamSv] = useState(true);
   const effectiveSpecificVolume = (useSteamSv && state?.specificVolume) ? state.specificVolume : velocitySpecificVolume;
   const velocity = calculateVelocity(pipeFlow, pipeFlowUnit, effectiveSpecificVolume, resolvedPipeRow.idMm);
+  const pipePressureDrop = calculatePipePressureDrop({ massFlow: pipeFlow, flowUnit: pipeFlowUnit, specificVolume: effectiveSpecificVolume, pipeIdMm: resolvedPipeRow.idMm, lengthM: pipeLengthM, densityKgM3: effectiveSpecificVolume > 0 ? 1 / effectiveSpecificVolume : undefined, viscosityPaS: pipeViscosity, roughnessMm: pipeRoughnessMm });
   const pipeRowsForStandard = PIPE_SIZES.filter((row) => row.standard === pipeStandard);
   const [showPipeTable, setShowPipeTable] = useState(true);
   const [pipeRightStandard, setPipeRightStandard] = useState<PipeStandard>('ASME B36.10/B36.19');
@@ -220,20 +227,19 @@ function App() {
       // Normal: toggle on/off
       setChecks((prev) => ({ ...prev, [field]: !prev[field] }));
     } else if (checkedFields.length >= 2 && !checks[field]) {
-      // Replace mode: user clicked a field while 2 are checked
-      // Keep the one that can pair with the new field, uncheck others
-      for (const checked of checkedFields) {
-        const pair = selectedFieldsToPair([checked, field]);
-        if (pair) {
-          setChecks((prev) => {
-            const next = { ...prev, [field]: true };
-            for (const cf of checkedFields) {
-              if (cf !== checked) next[cf] = false;
-            }
-            return next;
-          });
-          break;
-        }
+      // Replace mode: only auto-replace when the clicked field has ONE unambiguous compatible pairing.
+      // If it can pair with both currently checked fields (e.g. PT + h => PH or TH), do nothing and
+      // require the user to uncheck the unwanted field explicitly rather than switching unexpectedly.
+      const compatibleChecked = checkedFields.filter((checked) => Boolean(selectedFieldsToPair([checked, field])));
+      if (compatibleChecked.length === 1) {
+        const checkedToKeep = compatibleChecked[0];
+        setChecks((prev) => {
+          const next = { ...prev, [field]: true };
+          for (const cf of checkedFields) {
+            if (cf !== checkedToKeep) next[cf] = false;
+          }
+          return next;
+        });
       }
     }
   }
@@ -296,6 +302,7 @@ function App() {
           {tableFields.map((field) => <SteamTableRow key={field} field={field} lang={lang} checked={checks[field]} disabled={!canCheck(field)} value={showValue(field)} inputs={inputs} onToggle={() => toggleField(field)} onSet={set} />)}
         </div>
         {selectedPair && <div className="pairBadge">{t.selectedPair}: {selectedPair}</div>}
+        {state && result.saturation.saturationTemperatureK !== undefined && result.saturation.resolution === 'single-phase' && regionTone(state) === 'superheated' && <div className="superheatBadge">{lang === 'ko' ? `과열도: ${format(getDegreeOfSuperheatC({ stateTemperatureC: tempFromK(state.temperature, inputs.temperatureUnit), saturationTemperatureC: tempFromK(result.saturation.saturationTemperatureK, inputs.temperatureUnit) }))} ${inputs.temperatureUnit}` : `Degree of superheat: ${format(getDegreeOfSuperheatC({ stateTemperatureC: tempFromK(state.temperature, inputs.temperatureUnit), saturationTemperatureC: tempFromK(result.saturation.saturationTemperatureK, inputs.temperatureUnit) }))} ${inputs.temperatureUnit}`}</div>}
         {result.saturationOnly && <div className="satCard satOnlyCard">
           <div className="satHeader">
             <span>{lang === 'ko' ? '💰 포화온도 (압력 기준)' : '💰 Saturation Temperature (at given pressure)'}</span>
@@ -343,7 +350,7 @@ function App() {
             <div className="historyBody">
               <span className="historyLabel">{r.label}</span>
               <span className="historyRegion">{r.region}</span>
-              <span className="historyValues"><strong>P={format(r.p)} {r.pressureUnit || 'MPa'}</strong> <strong>T={format(r.t)} {r.temperatureUnit || '°C'}</strong> h={format(r.h)} s={format(r.s, 3)} {r.x !== null ? `x=${format(r.x, 3)}` : ''}</span>
+              <span className="historyValues"><strong>P={format(r.pressureStoredInUnit ? r.p : pressureFromMPa(r.p, r.pressureUnit || 'MPa'))} {r.pressureUnit || 'MPa'}</strong> <strong>T={format(r.t)} {r.temperatureUnit || '°C'}</strong> h={format(r.h)} s={format(r.s, 3)} {r.x !== null ? `x=${format(r.x, 3)}` : ''}</span>
             </div>
             <button className="historyDelete" onClick={(e) => { e.stopPropagation(); deleteRecord(r.id); }} title={lang === 'ko' ? '삭제' : 'Delete'}>✕</button>
           </div>)}
@@ -383,6 +390,13 @@ function App() {
             <NumberWithFixedUnit label="Pipe ID" value={resolvedPipeRow.idMm} unit="mm" onValue={() => undefined} disabled helper="from table" />
           </div>
           <div className="resultCards compact"><Metric label="Velocity" value={format(velocity.velocityMS)} unit="m/s" /><Metric label="Vol. flow" value={format(velocity.volumetricM3S)} unit="m³/s" /><Metric label="Mass flow" value={format(velocity.kgS)} unit="kg/s" /></div>
+          {pipePressureDrop.reynoldsNumber > 0 && <div className="resultCards compact"><Metric label="Reynolds" value={format(pipePressureDrop.reynoldsNumber)} unit="Re" /><Metric label="Regime" value={lang === 'ko' ? (pipePressureDrop.flowRegime === 'laminar' ? '층류' : pipePressureDrop.flowRegime === 'transitional' ? '천이' : '난류') : pipePressureDrop.flowRegime} unit="" /><Metric label="f" value={format(pipePressureDrop.darcyFrictionFactor, 5)} unit="Darcy" /><Metric label="ΔP" value={format(pipePressureDrop.pressureDropPa / 1000, 3)} unit="kPa" /><Metric label="ΔP/L" value={format(pipePressureDrop.pressureDropPerMeterPa, 3)} unit="Pa/m" /></div>}
+          <div className="pipeQuickInputs">
+            <NumberWithFixedUnit label="Length" value={pipeLengthM} unit="m" onValue={setPipeLengthM} helper="selected pipe run length" />
+            <NumberWithFixedUnit label="Viscosity" value={pipeViscosity} unit="Pa·s" onValue={setPipeViscosity} helper="quick estimate" />
+            <NumberWithFixedUnit label="Roughness" value={pipeRoughnessMm} unit="mm" onValue={setPipeRoughnessMm} helper="typical steel ≈ 0.045 mm" />
+          </div>
+          <div className="warn subtle">⚠ Pressure drop is a quick Darcy-Weisbach estimate only. Verify with actual fluid properties, fittings, two-phase effects, and project piping class before final design.</div>
           {velocity.velocityMS > 60 && <div className="warn">⚠ Velocity {format(velocity.velocityMS)} m/s exceeds steam guideline (~25–40 m/s) — erosion risk, check pipe spec</div>}
           {velocity.velocityMS > 0 && velocity.velocityMS < 5 && <div className="warn subtle">Velocity low ({format(velocity.velocityMS)} m/s) — may cause condensate accumulation in steam lines</div>}
           <Help title={t.help}>{t.pipeHelp}</Help>
@@ -441,7 +455,6 @@ function SteamFieldInput({ field, inputs, onSet }: { field: SteamTableField; inp
 
 function displayUnit(field: SteamTableField, inputs: SteamInputs) { if (field === 'pressure') return inputs.pressureUnit; if (field === 'temperature') return inputs.temperatureUnit; if (field === 'enthalpy') return 'kJ/kg'; if (field === 'entropy') return 'kJ/kg·K'; if (field === 'quality') return 'x'; return 'm³/kg'; }
 function ValueWithUnit({ value, unit }: { value: string; unit: string }) { return <output className="valueWithUnit"><strong>{value}</strong><em>{unit}</em></output>; }
-function parseNumericInput(raw: string) { const normalized = normalizeNumericText(raw); const next = Number(normalized); return { text: normalized, value: Number.isFinite(next) ? next : undefined }; }
 function DecimalTextInput({ value, onValue, disabled = false }: { value: number; onValue: (value: number) => void; disabled?: boolean }) {
   const [text, setText] = useState(String(value));
   useEffect(() => {
